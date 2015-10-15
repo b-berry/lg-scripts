@@ -1,3 +1,6 @@
+# lg-scripts
+Content Development Automation for the Liquid Galaxy platform
+
 RUBY VERSION:
 1.9.3-p194
  
