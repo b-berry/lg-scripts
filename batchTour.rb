@@ -1,9 +1,11 @@
 #!/usr/bin/env ruby
 # vim:ts=4:sw=4:et:smartindent:nowrap
+require 'etc'
+require 'json'
 require 'kamelopard'
 require 'kamelopard/spline'
+require 'nokogiri'
 require 'optparse'
-require 'json'
 #require 'pry'
 
 include Kamelopard
@@ -29,7 +31,22 @@ $abs_const = {  :heading => 0,
 }
 $ex_case = [ "Moffett Federal Airfield", "Palo Alto Airport" ]
 
-Template = %{
+TemplateOverlayKML = %(<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+  <Document>
+    <ScreenOverlay id="<%= name %>-id">
+        <name><%= name %></name>
+        <Icon><href><%= name %>.png</href></Icon>
+        <overlayXY x="0" y="1" xunits="fraction" yunits="fraction"/>
+        <screenXY x="0" y="1" xunits="fraction" yunits="fraction"/>
+        <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
+        <size x="-1" y="-1" xunits="fraction" yunits="fraction"/>
+    </ScreenOverlay>
+  </Document>
+</kml>
+)
+
+TemplateOverlayHTML = %{
     <!DOCTYPE html>
     <html>
 	<head>
@@ -96,7 +113,12 @@ def getOpts
             " (#{GraphicTypes})") do |gtype|
             $options[:graphic] = gtype
         end
-        opts.on("-o", "--override h,r,t", Array, "Override abstract view: heading,tilt,range") do |override|
+        opts.on("-s", "--screenOverlay PATH") do |path|
+            $options[:screenOverlay] = true
+            $options[:images] = path
+        end
+        opts.on("-o", "--override h,r,t", Array, 
+            "Override abstract view: heading,tilt,range") do |override|
             $options[:override] = override
             # Modify w/ overrides
             unless $options[:override].nil? 
@@ -149,9 +171,32 @@ def makeAutoplay
 
 end
 
-def makeOverlay(p)
+def makeOverlayKML
 
-	renderer = ERB.new Template
+    # Collect Images
+    images=[]
+    images=Dir.glob("#{$options[:images]}/*.{jpg,png}")
+
+    # Build KML from template
+    images.each do |i|
+        renderer = ERB.new TemplateOverlayKML
+        filename = File.basename(i)
+        filetype = File.extname(filename)
+        name = File.basename(i,File.extname(i)).gsub(' ','-').downcase
+	    kml_file = "#{$options[:images]}/#{name}.kml"
+
+        kml = renderer.result(binding)
+        File.write(kml_file, kml)
+        puts "..zipping #{name} KML..."
+        `zip #{kml_file.chomp('.kml')}.kmz -j #{kml_file} #{i}`
+        puts "...done!"
+ 
+    end
+end
+
+def makeOverlayHTML(p)
+
+	renderer = ERB.new TemplateOverlayHTML
 	matches = p[:description].match(/(^.*\(\w+\))\s+(.*?)\n(.*)/m)
     name = p[:name].gsub(' ','-').downcase
 	title = matches[1]
@@ -228,7 +273,7 @@ def makeRegions(infile)
         
         puts "...adding overlay to region folder"
 
-        makeOverlay(p)
+        makeOverlayHTML(p)
 
         puts "...done."
         i += 1
@@ -252,6 +297,14 @@ def makeRegions(infile)
  
 end
 
+def makeKMZ(filename,dirname)
+
+    puts "..zipping regionation files..."
+    `zip #{filename.chomp('.kml')}.kmz  -r #{filename} files/`
+    puts "...done!"
+
+end
+
 def collectPoints(infile)
 
     # Test infile TYPE
@@ -260,6 +313,16 @@ def collectPoints(infile)
     infile_type = infile_attr.last
 
     case infile_type
+        when "csv"
+
+            # Collect points from JSON file
+            puts "...reading JSON..."
+            $points = []
+            # Do things
+            puts "... in progress Aborting!"
+            exit
+            puts "...done."
+
         when "kml"
     
             # Collect points from KML file
@@ -282,7 +345,8 @@ def collectPoints(infile)
             puts "...reading JSON..."
             $points = []
             # Do things
-            
+            puts "... in progress Aborting!"
+            exit	 
             puts "...done."
 
         else
@@ -527,30 +591,38 @@ getOpts
 # data filename should be the first argument ./me ./path/to/data-file
 infile = ARGV[0]
 
-# Initiate attributes
-setAttr(infile)
+unless infile.nil?
+    # Initiate attributes
+    setAttr(infile)
 
-# Read $infile
-collectPoints(infile)
+    # Read $infile
+    collectPoints(infile)
 
-# Build gx:Tour if flight type specified
-if FlightTypes.include? $options[:flight] 
-    #makeTour(infile)
-    makeTour
+    # Build gx:Tour if flight type specified
+    if FlightTypes.include? $options[:flight] 
+        #makeTour(infile)
+        makeTour
+    end
+
+    sleep(1)
+
+    # Set up dynamic content KMZ
+    if $options[:regions] 
+        puts "Generating Regions..."
+        sleep(1)
+        makeRegions(infile)
+        puts "...done!"
+    else
+        puts "No additional constructions indicated..."
+    end 
 end
 
-sleep(1)
-
-# Set up dynamic content KMZ
-if $options[:regions] 
-    puts "Generating Regions..."
-    sleep(1)
-    makeRegions(infile)
+if $options[:screenOverlay]
+    puts "Generating Overlays..."
+    makeOverlayKML
+    puts "...done!"
 else
-    puts "No additional constructions indicated..."
+    puts "No infile specified OR No secondary constructions specified!"
 end
 
 puts "Finished!"
-
-
-
