@@ -23,6 +23,11 @@ GraphicTypes = %w(box screenOverlay)
 RegionWidthDelta = 0.030
 RegionHeightDelta = 0.030
 RegionLOD = [ 1920,-1,0,0 ]
+HostROS ="http://localhost" 
+PortROS =":8765"
+PathROS = "/query.html"
+QueryROS = "?query=playtour="
+
 $abs_const = {  :heading => 0,
                 :range => 1500, 
                 :tilt => 67, 
@@ -113,9 +118,9 @@ def getOpts
             " (#{GraphicTypes})") do |gtype|
             $options[:graphic] = gtype
         end
-        opts.on("-s", "--screenOverlay PATH") do |path|
-            $options[:screenOverlay] = true
-            $options[:images] = path
+        opts.on("-m", "--migrate [to ROS] PATH") do |migrate|
+            $options[:migrate] = true
+            $options[:KMLfiles] = migrate
         end
         opts.on("-o", "--override h,r,t", Array, 
             "Override abstract view: heading,tilt,range") do |override|
@@ -130,6 +135,10 @@ def getOpts
         end
         opts.on("-r", "--regions", "Build tour w/ Regions") do |regions|
             $options[:regions] = true 
+        end
+        opts.on("-s", "--screenOverlay PATH") do |path|
+            $options[:screenOverlay] = true
+            $options[:images] = path
         end
         opts.on("-w", "--write-each", "Build [flyto, orbit] tour for each placemark") do |write|
             $options[:inline] = false 
@@ -171,6 +180,87 @@ def makeAutoplay
 
 end
 
+def makeROS 
+
+    pathSrc = $options.fetch[:KMLfiles]
+
+    # Collect files
+    puts "Searching #{pathSrc}/ for #{fileType.upcase} files..."
+    puts
+
+    filesKML=[]
+    filesKML=Dir.glob("#{pathSrc}/**/*.#{fileType}")
+
+    # Test results
+    if filesKML.empty? 
+        puts "No files found!"
+        exit
+    end
+
+    # Report Findings.
+    puts filesKML
+    puts "Found #{filesKML.length} KML files." 
+
+    n = 0
+    # Operate over files
+    filesKML.each do |file|
+        # Testing
+        #if [ n > 0 ]
+        #    break
+        #end
+
+        puts "...editing #{file}:"
+        doc = File.open("#{file}") { |f| Nokogiri::XML(f) }
+        networkLink = doc.css("NetworkLink") 
+        # Skip file if no NetworkLink present
+        next if networkLink.empty?
+        # Get networkLink Name
+        networkLinkName = networkLink.css("name")
+        if networkLinkName.css("name").text  == "Autoplay" then 
+            # Extract Director Url
+            href = URI.parse(networkLink.css("href").text)
+            host = href.host
+            port = href.port
+            path = href.path
+            query = href.query
+            # Extract #{tourname}
+            if [ href.query.length > 1 ] then
+                href.query.split("&").each do |query|
+                    playtourTest = query.split("=").index("playtour")
+                    next if playtourTest.nil?
+                    @tourname = query.split("=")[playtourTest.to_f + 1]
+                end
+            else
+                playtourTest = query.split("=").index("playtour")
+                @tourname = query.split("=")[playtourTest.to_f + 1]
+            end
+            puts @tourname
+            # Confirm tourname
+            if @tourname.nil? then
+                puts "No Tourname Found! Skipping NetworkLink"
+                next
+            end
+            #queryRosString = URI.encode_www_form(QueryROS => @tourname) 	
+            queryRosString = "#{QueryROS}#{@tourname}"
+            # Modify Autoplay Url
+            hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
+            puts "...modifying Url: #{hrefRosReplace}."
+            networkLink.at_css("href").content = hrefRosReplace        	
+        end
+
+        # Write modified changes
+        #File.write(file, doc.to_xml)
+        puts "...Writing modifications..."
+        File.open(file, 'w') { |f| f.print(doc.to_xml) }
+        puts "...done."
+        
+        # Testing
+        #n = n + 1
+    end
+
+end
+
+
 def makeOverlayKML
 
     # Collect Images
@@ -185,11 +275,13 @@ def makeOverlayKML
         name = File.basename(i,File.extname(i)).gsub(' ','-').downcase
 	    kml_file = "#{$options[:images]}/#{name}.kml"
 
+        puts "Building #{name} KML..."
         kml = renderer.result(binding)
         File.write(kml_file, kml)
+        puts "...done."
         puts "..zipping #{name} KML..."
         `zip #{kml_file.chomp('.kml')}.kmz -j #{kml_file} #{i}`
-        puts "...done!"
+        puts "...done."
  
     end
 end
@@ -621,8 +713,13 @@ if $options[:screenOverlay]
     puts "Generating Overlays..."
     makeOverlayKML
     puts "...done!"
-else
-    puts "No infile specified OR No secondary constructions specified!"
+else if $options[:migrate]
+        puts "Initiating ROS migration..."
+        makeROS
+        puts "...done!"
+    else
+        puts "No infile specified OR No secondary constructions specified!"
+    end
 end
 
 puts "Finished!"
