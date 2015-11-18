@@ -6,6 +6,8 @@ require 'open-uri'
 
 include Kamelopard
 
+kmlDir = 'kml'
+
 TemplatePlacemarkKML = %(<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
   <LookAt>
@@ -33,9 +35,9 @@ def makeTour(p)
 
   puts "here!"
 
-	#data_filename = p["title"].gsub(/[, ]/,'-').gsub('--','-').downcase
+  #data_filename = p["title"].gsub(/[, ]/,'-').gsub('--','-').downcase
   title = p[:title].gsub(',','')
-	doc_name = "#{p[:title].gsub(/[, ]/,'-').gsub('--','-').downcase}.kml"
+  doc_name = "#{p[:title].gsub(/[, ']/,'-').gsub('--','-').downcase}"
   puts "Building #{title} Tour..."
 
   # name the Document using the data filename
@@ -76,7 +78,8 @@ def makeTour(p)
   puts "Writing gx:Tour to file..."
 
   # output to the same name as the data file, except with .kml extension 
-  write_kml_to doc_name
+  outfile = [ doc_name,'kml' ].join('.')  
+  write_kml_to outfile 
 
 end    
 
