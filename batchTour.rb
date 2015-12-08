@@ -437,8 +437,17 @@ def collectPoints(infile)
             puts "...reading JSON..."
             $points = []
             # Do things
-            puts "... in progress Aborting!"
-            exit	 
+            json_file = File.read(ARGV[0])
+            json_hash = JSON.parse(json_file)
+            
+           json_hash.each do |d|
+             parseJson(d)
+           end
+ 
+            # Search JSON for:
+            #title = parseJson(json_hash,title)
+            #latitude = parseJson(json_hash,latitude)
+            #longitude = parseJson(json_hash
             puts "...done."
 
         else
@@ -447,8 +456,45 @@ def collectPoints(infile)
             puts "...Cannot parse infile type."
             puts "Aborting!"
             exit
-
     end
+end
+
+
+def parseJson(d)
+
+    # Special Case JSON Parser - not gerneralized
+    case d
+      when String
+        next
+      when Array
+        d.each do |a|
+          case a
+          when String
+            next
+          when Array
+            next
+          when Hash
+            if a.has_key?("points")
+              a.fetch("points").each do |p|
+                # Collect data
+                title = p.fetch("title")
+                heading = p.fetch("heading")
+                location = p.fetch("location")
+                puts "Found: #{title},#{heading},#{location}"
+
+                $points << {:title => title,
+                            :heading => heading,
+                            :latitude => location.fetch("latitude"),
+                            :longitude => location.fetch("longitude")
+                           } 
+
+            end
+          else
+            puts "No pertinant keys found!"
+          end
+        end
+      end
+   end
 
 end
 
