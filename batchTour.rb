@@ -465,7 +465,7 @@ def parseJson(d)
     # Special Case JSON Parser - not gerneralized
     case d
       when String
-        next
+        #next
       when Array
         d.each do |a|
           case a
