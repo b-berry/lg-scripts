@@ -1,14 +1,8 @@
 #!/usr/bin/env ruby
 
-require 'etc'
 require 'nokogiri'
 require 'open-uri'
 
-user=Etc.getlogin
-
-pathSrc="/home/#{user}/src"
-projSrc="/lg-kml/space_exploration/"
-#projSrc="/lg-google-org"
 fileType="kml"
 
 HostROS ="http://localhost" 
@@ -16,12 +10,20 @@ PortROS =":8765"
 PathROS = "/query.html"
 QueryROS = "?query=playtour="
 
+# Set asset dir from command-line argument
+if ARGV[0].nil?
+    puts "ERROR: Please specify path to asset_storage."
+    exit
+else 
+    path = ARGV[0]
+end
+
 # Collect files
-puts "Searching #{pathSrc}#{projSrc}/ for #{fileType.upcase} files..."
+puts "Searching #{path}/ for #{fileType.upcase} files..."
 puts
 
 filesKML=[]
-filesKML=Dir.glob("#{pathSrc}#{projSrc}/**/*.#{fileType}")
+filesKML=Dir.glob("#{path}/**/*.#{fileType}")
 
 # Test results
 if filesKML.empty? 
