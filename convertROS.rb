@@ -105,7 +105,7 @@ def convertFile(doc)
         queryRosString = "#{QueryROS}#{@tourname}"
         # Modify Autoplay Url
         hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
-        puts "...Modifying Url: #{hrefRosReplace}."
+        puts "...Modifying Url: #{hrefRosReplace}"
         networkLink.at_css("href").content = hrefRosReplace        	
     end
     return doc
@@ -117,7 +117,7 @@ def writeFile(doc,file)
     #File.write(file, doc.to_xml)
     puts "...Writing modifications..."
     #File.open(file, 'w') { |f| f.print(doc.to_xml) }
-    File.write(file, doc.to_xml)
+    File.write("#{file}", doc.to_xml)
     puts "...done."
 
 end
@@ -193,8 +193,8 @@ def unzipFile(file)
             
                 # Write modified doc to disk
                 doc_update = "#{$path}/#{TempDir}/#{filename}"
-                File.write(doc_update, doc.to_xml)
-                zipFile(file, filename, doc_update)
+                File.write("#{doc_update}", doc.to_xml)
+                zipFile("#{file}", "#{filename}", doc_update)
            #else
 
                 # Read into memory
