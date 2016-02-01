@@ -3,10 +3,12 @@
 require 'fileutils'
 require 'nokogiri'
 require 'open-uri'
-require 'stringio'
-require 'zipruby'
+require 'zip'
+#require 'stringio'
+#require 'zipruby'
 
 BackupName = "OLD"
+TempDir = ".tmp"
 FileType = ["kml","kmz"]
 HostROS ="http://localhost" 
 PortROS =":8765"
@@ -20,22 +22,22 @@ if ARGV[0].nil?
     puts "ERROR: Please specify path to asset_storage."
     exit
 else 
-    path = ARGV[0]
+    $path = ARGV[0]
 end
 
-def collectFiles(path)
+def collectFiles
 
     searchType = FileType.join(",")
 
-    puts "Searching for #{searchType.upcase} files in #{path}"
+    puts "Searching for #{searchType.upcase} files in #{$path}"
 
-    $files = Dir.glob("#{path}/**.{#{searchType}}")
+    $files = Dir.glob("#{$path}/**.{#{searchType}}")
 
 end
 
-def createBackup(path)
+def createBackup
 
-    dir_b = "#{path}/#{BackupName}/"
+    dir_b = "#{$path}/#{BackupName}/"
 
     puts "Creating backupd dir: #{dir_b}"
 
@@ -61,9 +63,10 @@ def parseFiles
             writeFile(doc,file)
         #when ".kmz"
         when /Zip/
-            #unzipFile(file)
             #zipFile(doc,file)
-            processKmz(file)
+            FileUtils::mkdir_p "#{$path}/#{TempDir}"
+            #processKmz(file)
+            unzipFile(file)
         end    
     end
 end
@@ -159,13 +162,65 @@ def processKmz(file)
         end    
     end
 
-    # RubyZip gem usage
-    
-
 
 end
 
 def unzipFile(file)
+
+    puts "...Unpacking KMZ: #{file}..."
+
+    zip_entries = []
+    # RubyZip gem usage
+    Zip::File.open(file) do |zip_file|
+        # Store contents
+        zip_file.each do |entry|
+            filename = entry.to_s
+            if filename.split('.').last  == 'kml' 
+
+                doc_string =  entry.get_input_stream.read
+                doc = Nokogiri::XML(doc_string)
+
+                # Process KML
+                convertFile(doc)
+
+                # Test KML
+                if doc_string == doc.serialize
+                    puts "...No change found. Skipping."
+                    next
+                end
+                
+                zip_entries << { :name => entry, :content => doc.serialize }
+            
+                # Write modified doc to disk
+                doc_update = "#{$path}/#{TempDir}/#{filename}"
+                File.write(doc_update, doc.to_xml)
+                zipFile(file, filename, doc_update)
+           #else
+
+                # Read into memory
+                #zip_entries << { :name => entry, 
+                #                 :content => entry.get_input_stream.read }
+
+            end
+
+        end
+    
+        # Find KML entry(s) ** IF solution to `zip -u foo.kmz #{doc}` found
+        #entry = zip_file.glob('*.kml').each do |kml|
+        #    doc_string =  entry.get_input_stream.read
+        #    doc = Nokogiri::XML(doc_string)
+
+            # Process KML
+        #    convertFile(doc)
+            
+            # Update KML
+        #    doc_update = doc.serialize
+            
+        #end
+
+    end 
+
+    #zipFile(file,zip_entries)
 
     # RubyZip gem usage
     #require 'zip'
@@ -183,34 +238,51 @@ def unzipFile(file)
     #kmls = []
 
 
-    puts "Unpacking KMZ: #{file}..."
-    kmls = `unzip -p -j #{file} doc.kml`
+    #puts "Unpacking KMZ: #{file}..."
+    #kmls = `unzip -p -j #{file} doc.kml`
 
     # Test Unzip
-    if kmls.empty? 
-         puts "...Unpack failed, no doc.kml found."
-    end
+    #if kmls.empty? 
+    #     puts "...Unpack failed, no doc.kml found."
+    #end
  
     #kmls.each do |k|
         # Open KML file
         #doc = XML::Document.string(kmls) { |f| Nokogiri::XML(f) }
-        doc = Nokogiri::XML(kmls)
+    #    doc = Nokogiri::XML(kmls)
 
-        unless doc.nil?
-            puts "...OK."
-            convertFile(doc)
+    #    unless doc.nil?
+    #        puts "...OK."
+    #        convertFile(doc)
         
             # Update file in archive
-            zipFile(doc,file)
-        end
+    #        zipFile(doc,file)
+    #    end
     #end
 
 end
 
-def zipFile(doc,file)
+def zipFile(file, filename, doc)
+
+    Zip::File.open(file) do |zip_update|
+        puts "...Updating #{filename} -> #{doc}"
+        zip_update.replace(filename, doc)
+    end
+
+    puts "...OK."
 
     # Update doc.kml in zip archive
-    `zip -u #{file} -j #{doc}`
+    #`zip -u #{file} -j #{doc}`
+
+#    Zip::File.open(file, Zip::File::CREATE) do |zipfile|
+#        zip_entries.each do |zipper|
+            # Two arguments:
+            # - The name of the file as it will appear in the archive
+            # - The original file, including the path to find it
+#            zipfile.get_output_stream(zipper.fetch(:name)) { |os| os.write "#{zipper.fetch(:content).to_s}" }
+#            zipfile.add(file, zipper.fetch(:name) )
+#        end
+#    end
 
 end
 
@@ -219,19 +291,19 @@ end
 
 # Issue warning
 puts "### WARNING!! ###"
-puts "# Running this script will modify asset_files in #{path}"
+puts "# Running this script will modify asset_files in #{$path}"
 puts "# Ctrl + z now to cancel operations"
 puts
 
     sleep(2)
 
-collectFiles(path)
+collectFiles
 
 testFiles
 
     sleep(2)
 
-createBackup(path)
+createBackup
 
 # Process KML files
 parseFiles
