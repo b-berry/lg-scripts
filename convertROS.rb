@@ -1,9 +1,13 @@
 #!/usr/bin/env ruby
 
+require 'fileutils'
 require 'nokogiri'
 require 'open-uri'
+require 'stringio'
+require 'zipruby'
 
-FileType=["kml","kmz"]
+BackupName = "OLD"
+FileType = ["kml","kmz"]
 HostROS ="http://localhost" 
 PortROS =":8765"
 PathROS = "/query.html"
@@ -29,9 +33,22 @@ def collectFiles(path)
 
 end
 
+def createBackup(path)
+
+    dir_b = "#{path}/#{BackupName}/"
+
+    puts "Creating backupd dir: #{dir_b}"
+
+    FileUtils::mkdir_p dir_b 
+    FileUtils::cp $files, dir_b
+
+end
+
 def parseFiles
     
     $files.each do |file|
+
+        puts "Processing: #{file}:"
 
         # Test filetype 
         ftype = File.extname(file)
@@ -44,8 +61,9 @@ def parseFiles
             writeFile(doc,file)
         #when ".kmz"
         when /Zip/
-            unzipFile(file)
+            #unzipFile(file)
             #zipFile(doc,file)
+            processKmz(file)
         end    
     end
 end
@@ -84,7 +102,7 @@ def convertFile(doc)
         queryRosString = "#{QueryROS}#{@tourname}"
         # Modify Autoplay Url
         hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
-        puts "...modifying Url: #{hrefRosReplace}."
+        puts "...Modifying Url: #{hrefRosReplace}."
         networkLink.at_css("href").content = hrefRosReplace        	
     end
     return doc
@@ -113,6 +131,40 @@ def testFiles
 
 end
 
+def processKmz(file)
+
+    puts "...Attempting Zip Extraction."
+    # ZipRuby gem usage
+    Zip::Archive.open(file) do |ar|
+        i = 0
+        ar.each do |f|
+            fname = f.name
+            if fname.split('.').last == "kml"
+                ar.fopen(fname) do |d|
+                    doc = Nokogiri::XML(d.read)
+                    convertFile(doc)
+                    # Replace w/ updated #{doc}
+                    #docUpdate = StringIO.open(string="#{doc.text}")
+                    #docUpdate = doc.write_to(fname, :encoding => 'UTF-8', :indent => 2)
+                    doc_update = doc.serialize
+                    doc_replace = StringIO.new
+                    doc_replace.write doc_update
+                    ar.replace_io(i,doc_replace)
+                    #ar.replace_file(fname,docUpdate)
+                    #ar.replace_io(fname,doc)
+                    ar.commit
+                end
+            end
+        i += 1
+        end    
+    end
+
+    # RubyZip gem usage
+    
+
+
+end
+
 def unzipFile(file)
 
     # RubyZip gem usage
@@ -129,6 +181,8 @@ def unzipFile(file)
 
     # Unzip *.kml from file.kmz as File
     #kmls = []
+
+
     puts "Unpacking KMZ: #{file}..."
     kmls = `unzip -p -j #{file} doc.kml`
 
@@ -177,7 +231,9 @@ testFiles
 
     sleep(2)
 
-parseFiles
+createBackup(path)
 
 # Process KML files
+parseFiles
+
 
