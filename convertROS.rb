@@ -174,7 +174,8 @@ def unzipFile(file)
     Zip::File.open(file) do |zip_file|
         # Store contents
         zip_file.each do |entry|
-            filename = entry.to_s
+            fullname = entry.to_s	
+            filename = File.basename(entry.to_s)
             if filename.split('.').last  == 'kml' 
 
                 doc_string =  entry.get_input_stream.read
@@ -194,7 +195,7 @@ def unzipFile(file)
                 # Write modified doc to disk
                 doc_update = "#{$path}/#{TempDir}/#{filename}"
                 File.write("#{doc_update}", doc.to_xml)
-                zipFile("#{file}", "#{filename}", doc_update)
+                zipFile("#{file}", "#{fullname}", doc_update)
            #else
 
                 # Read into memory
