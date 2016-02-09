@@ -3,9 +3,8 @@
 require 'fileutils'
 require 'nokogiri'
 require 'open-uri'
+require 'securerandom'
 require 'zip'
-#require 'stringio'
-#require 'zipruby'
 
 BackupName = "OLD"
 TempDir = ".tmp"
@@ -111,6 +110,23 @@ def convertFile(doc)
     return doc
 end
 
+def imageResize(file, img, entry)
+
+    # input_image_filename, output_image_filename, max_width, max_height
+    #Image.resize(img, img_r, 1215, 2160) 
+
+    img_r = "#{img.gsub('.png','')}-resize.png" 
+    puts "...Resizing #{img} -> #{img_r}"
+    `convert #{img} -resize x2160 #{img_r}`
+
+    # fix
+    `ln -snf "#{File.basename(img_r)}" "#{img}"` 
+	
+    # Zip image
+    zipFile(file, img_r, entry)
+
+end
+
 def writeFile(doc,file)
 
     # Write modified changes
@@ -171,40 +187,49 @@ def unzipFile(file)
 
     zip_entries = []
     # RubyZip gem usage
-    Zip::File.open(file) do |zip_file|
-        # Store contents
-        zip_file.each do |entry|
-            fullname = entry.to_s	
-            filename = File.basename(entry.to_s)
-            if filename.split('.').last  == 'kml' 
+    Zip::File.open(file).each do |entry|
+        fullname = entry.to_s	
+        filename = File.basename(fullname) 
+        #filename = "#{SecureRandom.urlsafe_base64}" 
+        case fullname.split('.').last 
+        when 'kml' 
 
-                doc_string =  entry.get_input_stream.read
-                doc = Nokogiri::XML(doc_string)
+            doc_string =  entry.get_input_stream.read
+            doc = Nokogiri::XML(doc_string)
 
-                # Process KML
-                convertFile(doc)
+            ## Process KML
+            convertFile(doc)
 
-                # Test KML
-                if doc_string == doc.serialize
-                    puts "...No change found. Skipping."
-                    next
-                end
-                
-                zip_entries << { :name => entry, :content => doc.serialize }
-            
-                # Write modified doc to disk
-                doc_update = "#{$path}/#{TempDir}/#{filename}"
-                File.write("#{doc_update}", doc.to_xml)
-                zipFile("#{file}", "#{fullname}", doc_update)
-           #else
-
-                # Read into memory
-                #zip_entries << { :name => entry, 
-                #                 :content => entry.get_input_stream.read }
-
+            ## Test KML
+            if doc_string == doc.serialize
+                puts "...No change found. Skipping."
+                next
             end
+            
+            zip_entries << { :name => entry, :content => doc.serialize }
+        
+            ## Write modified doc to disk
+            doc_update = "#{$path}/#{TempDir}/#{filename}"
+            File.write("#{doc_update}", doc.to_xml)
+            zipFile("#{file}", "#{fullname}", doc_update)
+            #else
+
+            # Read into memory
+            #zip_entries << { :name => entry, 
+            #                 :content => entry.get_input_stream.read }
+
+        when 'png'
+    
+            # Extract Image
+            img_string = entry.get_input_stream.read 
+            img_name = "#{$path}/#{TempDir}/#{filename}" 
+            puts "...Extracting from #{file}: #{img_name}"
+            File.write("#{img_name}", img_string)             
+            # Convert Image
+            imageResize(file, img_name, fullname)
 
         end
+
     
         # Find KML entry(s) ** IF solution to `zip -u foo.kmz #{doc}` found
         #entry = zip_file.glob('*.kml').each do |kml|
@@ -263,12 +288,24 @@ def unzipFile(file)
 
 end
 
-def zipFile(file, filename, doc)
+def zipFile(file, filename, entry)
 
-    Zip::File.open(file) do |zip_update|
-        puts "...Updating #{filename} -> #{doc}"
-        zip_update.replace(filename, doc)
-    end
+    # Modifiy entry to match in-archive path
+    entry = File.basename(entry)
+
+    puts "...Updating: #{file}"
+    puts "             #{filename} -> #{entry}"
+    `zip -f #{file} #{entry}`
+
+    #Zip::File.open(file) do |zip_update|
+    #    puts "...Updating: #{file}"
+    #    puts "             #{filename} -> #{entry}"
+    #    #zip_update.replace("#{entry}","#{filename}")
+    #    temp_n = "#{SecureRandom.urlsafe_base64}.png"
+    #    zip_update.remove("#{entry}")
+    #    zip_update.add(temp_n, filename)
+    #    zip_update.rename(temp_n, entry)
+    #end
 
     puts "...OK."
 
