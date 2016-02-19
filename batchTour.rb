@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 # vim:ts=4:sw=4:et:smartindent:nowrap
+require 'csv'
 require 'etc'
 require 'json'
 require 'kamelopard'
 require 'kamelopard/spline'
 require 'nokogiri'
 require 'optparse'
-#require 'pry'
 
 include Kamelopard
 include Kamelopard::Functions
@@ -54,38 +54,38 @@ TemplateOverlayKML = %(<?xml version="1.0" encoding="UTF-8"?>
 TemplateOverlayHTML = %{
     <!DOCTYPE html>
     <html>
-	<head>
-        <meta charset="UTF-8">		
-	    <style>
-		body { background-color:white;
-			   margin:40px;
-		       width:980px
-		     }
-		h1 { font-family:"sans";
-		     text-align:center  
-		   }
-		h2 { font-family:"sans";
-		     text-align:center  
-		   }
-		img { width:900px; 
-		      height:75px
-		    }
-		p { color:black; 
-		    font-family:"sans";
-		    text-align:justify;
-		    width:900px
-		  }
-	    </style>  
-	</head>    
-	<title><%= title %> Overlay</title>
-	<body>
+  <head>
+        <meta charset="UTF-8">    
+      <style>
+    body { background-color:white;
+         margin:40px;
+           width:980px
+         }
+    h1 { font-family:"sans";
+         text-align:center  
+       }
+    h2 { font-family:"sans";
+         text-align:center  
+       }
+    img { width:900px; 
+          height:75px
+        }
+    p { color:black; 
+        font-family:"sans";
+        text-align:justify;
+        width:900px
+      }
+      </style>  
+  </head>    
+  <title><%= title %> Overlay</title>
+  <body>
     
-	<img src="<%= logo %>" alt="logo">
-	<h1><%= title %></h1>
-	<h2><%= subtitle %></h2>
-	<p><%= description %></p>
+  <img src="<%= logo %>" alt="logo">
+  <h1><%= title %></h1>
+  <h2><%= subtitle %></h2>
+  <p><%= description %></p>
 
-	</body>
+  </body>
     </html>
 }
 
@@ -240,12 +240,12 @@ def makeROS
                 puts "No Tourname Found! Skipping NetworkLink"
                 next
             end
-            #queryRosString = URI.encode_www_form(QueryROS => @tourname) 	
+            #queryRosString = URI.encode_www_form(QueryROS => @tourname)  
             queryRosString = "#{QueryROS}#{@tourname}"
             # Modify Autoplay Url
             hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
             puts "...modifying Url: #{hrefRosReplace}."
-            networkLink.at_css("href").content = hrefRosReplace        	
+            networkLink.at_css("href").content = hrefRosReplace         
         end
 
         # Write modified changes
@@ -273,7 +273,7 @@ def makeOverlayKML
         filename = File.basename(i)
         filetype = File.extname(filename)
         name = File.basename(i,File.extname(i)).gsub(' ','-').downcase
-	    kml_file = "#{$options[:images]}/#{name}.kml"
+      kml_file = "#{$options[:images]}/#{name}.kml"
 
         puts "Building #{name} KML..."
         kml = renderer.result(binding)
@@ -288,20 +288,20 @@ end
 
 def makeOverlayHTML(p)
 
-	renderer = ERB.new TemplateOverlayHTML
-	matches = p[:description].match(/(^.*\(\w+\))\s+(.*?)\n(.*)/m)
+  renderer = ERB.new TemplateOverlayHTML
+  matches = p[:description].match(/(^.*\(\w+\))\s+(.*?)\n(.*)/m)
     name = p[:name].gsub(' ','-').downcase
-	title = matches[1]
-	subtitle = matches[2]
-	description = matches[3]
+  title = matches[1]
+  subtitle = matches[2]
+  description = matches[3]
     logo = "logo.jpg"
-	html_file = "files/#{name}.html"
-	png_file  = "files/#{name}.png"
+  html_file = "files/#{name}.html"
+  png_file  = "files/#{name}.png"
 
-	html = renderer.result(binding)
-	#p html
-	File.write(html_file, html)
-	`wkhtmltoimage --width 980 --disable-smart-width "#{html_file}" "#{png_file}"`
+  html = renderer.result(binding)
+  #p html
+  File.write(html_file, html)
+  `wkhtmltoimage --width 980 --disable-smart-width "#{html_file}" "#{png_file}"`
 
     # Make screenOverlay
     puts "...populating w/ overlay: #{png_file}"
@@ -336,7 +336,7 @@ def makeRegions(infile)
 
         # Make Region instance
         if not (p[:latitude].nil? or p[:longitude].nil?)
-	    	#binding.pry
+        #binding.pry
             # Test Case for $ex_case
             if $ex_case.include? p[:name]
                 get_folder << Kamelopard::Region.new(
@@ -407,13 +407,39 @@ def collectPoints(infile)
     case infile_type
         when "csv"
 
-            # Collect points from JSON file
-            puts "...reading JSON..."
+            # Collect points from CSV file
+            puts "...reading CSV..."
             $points = []
-            # Do things
-            puts "... in progress Aborting!"
-            exit
-            puts "...done."
+            firstline = true
+            # Gather data points
+            CSV.foreach(infile) do |line|
+                if firstline  
+                     firstline = false
+                     next
+                end
+
+                # Skip missing lat/lon  
+                if line[3].nil? or line[4].nil?
+                    next
+                end
+
+                unless $options[:override].nil?
+                    # Override infile abstract view
+                    heading = $abs_const.fetch(:heading)
+                    range = $abs_const.fetch(:range) 
+                    tilt = $abs_const.fetch(:tilt)
+                end 
+
+                $points << {
+                    :name      => line[2],
+                    :latitude  => line[3],
+                    :longitude => line[4],
+                    :heading   => heading,
+                    :range     => range,
+                    :tilt      => tilt
+                }
+
+            end
 
         when "kml"
     
@@ -488,13 +514,13 @@ def parseJson(d)
                             :longitude => location.fetch("longitude")
                            } 
 
+              end
+            else
+              puts "No pertinant keys found!"
             end
-          else
-            puts "No pertinant keys found!"
           end
         end
-      end
-   end
+    end
 
 end
 
@@ -576,10 +602,10 @@ def makeOrbit
     end
 
     # Special Case
-    unless ARGV[1].nil?	
+    unless ARGV[1].nil? 
         puts "Handling secondary file..."
         alt_marks = []
-        # Read alt file	
+        # Read alt file 
         each_placemark(XML::Document.file(ARGV[1])) do |p,v|
             #v[:range] = 2000 
             #v[:tilt] = 71
@@ -595,7 +621,7 @@ def makeOrbit
 
         puts "...done."
     end
-	
+  
 end
 
 def makeSpline
@@ -677,7 +703,10 @@ end
 def modAttr(p)
 
     # Process document name
-    doc_name = "#{p[:name].gsub(/[-_]/,' ').split.map(&:capitalize).join(' ')}"
+    if p[:name].nil?
+        p[:name] = "Nil-Name-#{SecureRandom.urlsafe_base64}"
+    end
+    doc_name = "#{p[:name].gsub(/[-_]/,' ').gsub(/[(,)]/,'-').split.map(&:capitalize).join(' ')}"
     puts "Building #{doc_name} #{$options.fetch(:flight).capitalize}..."
 
     # name the Document using the data filename
@@ -695,7 +724,7 @@ def setAttr(infile)
     $data_attr = {} 
 
     # Process document name
-	data_filename = File.basename(infile,'.*')
+  data_filename = File.basename(infile,'.*')
     doc_name = "#{data_filename.gsub(/[-_]/,' ').split.map(&:capitalize).join(' ').chomp(".kml")}"
     puts "Building #{doc_name} #{$options.fetch(:flight).capitalize}..."
 
