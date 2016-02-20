@@ -565,7 +565,7 @@ end
 def makeOrbit
 
     # fly to each point
-    $points.each do |p|
+    $points.each_with_index do |p,i|
 
         # Create new Doc if user specified --each-write
         unless $options[:inline]
@@ -587,10 +587,15 @@ def makeOrbit
 
         # orbit around "p", which is a kamelopard point() using values from the first placemark in the data file
         f = make_view_from(p)
-        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 280, {:duration => 37, :step => 10, :already_there => true} )
+        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 70, {:duration => 15, :step => 7, :already_there => true} )
 
         # pause
         pause 1.5 
+
+        # Special Case
+        unless ARGV[1].nil? 
+            makeSecond(i)
+        end
 
         # Write KML if user specified --each-write
         unless $options[:inline]
@@ -601,32 +606,37 @@ def makeOrbit
         end
     end
 
-    # Special Case
-    unless ARGV[1].nil? 
-        puts "Handling secondary file..."
-        alt_marks = []
-        # Read alt file 
-        each_placemark(XML::Document.file(ARGV[1])) do |p,v|
-            #v[:range] = 2000 
-            #v[:tilt] = 71
-            #v[:altitude] = 0 
-            alt_marks << v
-        end
+end
 
+def makeSecond(i)
+
+    puts "...Handling secondary file: #{ARGV[1]}"
+    alt_marks = []
+    # Read alt file 
+    each_placemark(XML::Document.file(ARGV[1])) do |u,v|
+        #v[:range] = 2000 
+        #v[:tilt] = 71
+        #v[:altitude] = 0 
+        alt_marks << v
+    end
+    
+    if alt_marks[i].nil? 
+        puts "...No Placemark at location: #{i}. Skipping."
+    else
         # Fly to 1st point
-        fly_to make_view_from(alt_marks.first), :duration => 3
+        fly_to make_view_from(alt_marks[i]), :duration => 3
 
         # pause
-        pause 2
+        pause 4
 
         puts "...done."
     end
-  
+
 end
 
 def makeSpline
 
-    # Define Spline
+    # Define Splinea
     puts "Generating spline path..."
     sp = SplineFunction.new($points.length.to_f)
 
