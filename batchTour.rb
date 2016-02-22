@@ -94,6 +94,7 @@ def getOpts
     # Parse Options
     OptionParser.new do |opts|
         # Set Defaults here
+        $options[:assetdir] = './'
         $options[:autpolay] = 'director'
         $options[:infile] = 'doc.kml'
         $options[:inline] = 'true'
@@ -107,6 +108,10 @@ def getOpts
             "Build AutoPlay query using TYPE",
             " (#{AutoplayTypes})") do |aplay|
             $options[:autoplay] = aplay
+        end
+        opts.on("-d", "--asset-dir PATH","Set asset write-to path", 
+            " Default inline: ie ./") do |dir|
+            $options[:assetdir] = dir
         end
         opts.on("-fTYPE","--flight TYPE", FlightTypes, 
             "Build flight dynamics using TYPE",
@@ -754,7 +759,7 @@ def writeTour
     tourname = $data_attr[:tourName]
 
     # output to the same name as the data file, except with .kml extension
-    outfile = [ tourname, 'kml' ].join('.')
+    outfile = "#{$options[:assetdir]}/#{tourname}"
     write_kml_to outfile
 
     puts "...Done."
@@ -774,6 +779,11 @@ unless infile.nil?
 
     # Read $infile
     collectPoints(infile)
+
+    # Test assets writeTo dir
+    unless Dir.exists?($options[:assetdir])
+       FileUtils.mkdir_p "#{$options[:assetdir]}"
+    end
 
     # Build gx:Tour if flight type specified
     if FlightTypes.include? $options[:flight] 
