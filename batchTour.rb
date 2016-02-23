@@ -2,6 +2,7 @@
 # vim:ts=4:sw=4:et:smartindent:nowrap
 require 'csv'
 require 'etc'
+require 'fileutils'
 require 'json'
 require 'kamelopard'
 require 'kamelopard/spline'
@@ -437,11 +438,11 @@ def collectPoints(infile)
 
                 $points << {
                     :name      => line[2],
-                    :latitude  => line[3],
-                    :longitude => line[4],
-                    :heading   => heading,
-                    :range     => range,
-                    :tilt      => tilt
+                    :latitude  => line[3].to_f,
+                    :longitude => line[4].to_f,
+                    :heading   => heading.to_f,
+                    :range     => range.to_f,
+                    :tilt      => tilt.to_f
                 }
 
             end
@@ -592,7 +593,7 @@ def makeOrbit
 
         # orbit around "p", which is a kamelopard point() using values from the first placemark in the data file
         f = make_view_from(p)
-        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 70, {:duration => 15, :step => 7, :already_there => true} )
+        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 90, {:duration => 13, :step => 7, :already_there => true} )
 
         # pause
         pause 1.5 
@@ -759,7 +760,7 @@ def writeTour
     tourname = $data_attr[:tourName]
 
     # output to the same name as the data file, except with .kml extension
-    outfile = "#{$options[:assetdir]}/#{tourname}"
+    outfile = "#{$options[:assetdir]}/#{tourname}.kml"
     write_kml_to outfile
 
     puts "...Done."
