@@ -1,4 +1,4 @@
-# lg-scripts
+## lg-scripts
 Content Development Automation for the Liquid Galaxy platform
 
 RUBY VERSION:
@@ -38,12 +38,12 @@ Usage: example.rb [options] -A {director,ispaces,roscoe} FILE
 
 EXAMPLES:
 
-# Build screen Overlays from $images/*
+## Build screen Overlays from $images/*
 ./batchTour.rb -s images/
 
-# Build flyTo tours for each placemark in placemarks.kml
+## Build flyTo tours for each placemark in placemarks.kml
 ./batchTour.rb -a roscoe -f flyto -w placemarks.kml
 
-# Build orbit tours w/ abstractView override from placemarks.kml
+## Build orbit tours w/ abstractView override from placemarks.kml
 ./batchTour.rb -a roscoe -f orbit -o 0,1000,57 -w placemarks.kml
 
