@@ -43,10 +43,10 @@ TemplateOverlayKML = %(<?xml version="1.0" encoding="UTF-8"?>
     <ScreenOverlay id="<%= name %>-id">
         <name><%= name %></name>
         <Icon><href><%= name %>.png</href></Icon>
-        <overlayXY x="0" y="1" xunits="fraction" yunits="fraction"/>
-        <screenXY x="0" y="1" xunits="fraction" yunits="fraction"/>
+        <overlayXY x="<%= so_xy[0] %>" y="<%= so_xy[1] %>" xunits="fraction" yunits="fraction"/>
+        <screenXY x="<%= so_xy[2] %>" y='<%= {so_xy[3] %>" xunits="fraction" yunits="fraction"/>
         <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
-        <size x="-1" y="-1" xunits="fraction" yunits="fraction"/>
+        <size x="<%= so_xy[4] %>" y="<%= so_xy[5] %>" xunits="fraction" yunits="fraction"/>
     </ScreenOverlay>
   </Document>
 </kml>
@@ -99,6 +99,7 @@ def getOpts
         $options[:autpolay] = 'director'
         $options[:infile] = 'doc.kml'
         $options[:inline] = 'true'
+        $options[:overlayXY] = %w(0 1 0 1 -1 -1)
 
         opts.banner = "Usage: example.rb [options] -A {director,ispaces,roscoe} FILE"
         opts.on("-h", "--help", "Prints this help") do
@@ -142,9 +143,14 @@ def getOpts
         opts.on("-r", "--regions", "Build tour w/ Regions") do |regions|
             $options[:regions] = true 
         end
-        opts.on("-s", "--screenOverlay PATH") do |path|
+        opts.on("-s", "--screenOverlay PATH", "Build KMZ overlays from images in PATH") do |path|
             $options[:screenOverlay] = true
             $options[:images] = path
+        end
+        opts.on("-x", "--xy-overlay x,y,x,y,x,y", Array,
+            "Overide default ScreenOverlay anchor: #{$options[:overlayXY]}") do |so|
+            $options[:overlayXY] = so
+            puts "...Override ScreenOverlay anchor: #{$options[:screenXY]}"
         end
         opts.on("-w", "--write-each", "Build [flyto, orbit] tour for each placemark") do |write|
             $options[:inline] = false 
@@ -279,6 +285,7 @@ def makeOverlayKML
         filename = File.basename(i)
         filetype = File.extname(filename)
         name = File.basename(i,File.extname(i)).gsub(' ','-').downcase
+        so_xy = $options[:overlayXY]
       kml_file = "#{$options[:images]}/#{name}.kml"
 
         puts "Building #{name} KML..."
