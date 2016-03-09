@@ -187,6 +187,8 @@ def unzipFile(file)
 
     zip_entries = []
     # RubyZip gem usage
+    d_name = File.basename(file).gsub('.','-')
+    t_path = "#{$path}/#{TempDir}/#{d_name}"
     Zip::File.open(file).each do |entry|
         fullname = entry.to_s	
         filename = File.basename(fullname) 
@@ -209,25 +211,28 @@ def unzipFile(file)
             zip_entries << { :name => entry, :content => doc.serialize }
         
             ## Write modified doc to disk
-            doc_update = "#{$path}/#{TempDir}/#{filename}"
+            FileUtils.mkdir_p(t_path) unless File.directory?(t_path)
+            doc_update = "#{t_path}/#{filename}"
             File.write("#{doc_update}", doc.to_xml)
-            zipFile("#{file}", "#{fullname}", doc_update)
+            zipFile(file, doc_update, fullname)
             #else
 
             # Read into memory
             #zip_entries << { :name => entry, 
             #                 :content => entry.get_input_stream.read }
 
-        when 'png'
-    
-            # Extract Image
-            img_string = entry.get_input_stream.read 
-            img_name = "#{$path}/#{TempDir}/#{filename}" 
-            puts "...Extracting from #{file}: #{img_name}"
-            File.write("#{img_name}", img_string)             
-            # Convert Image
-            imageResize(file, img_name, fullname)
+#        when 'png'
+#    
+#            # Extract Image
+#            img_string = entry.get_input_stream.read 
+#            img_name = "#{$path}/#{TempDir}/#{filename}" 
+#            puts "...Extracting from #{file}: #{img_name}"
+#            File.write("#{img_name}", img_string)             
+#            # Convert Image
+#            imageResize(file, img_name, fullname)
 
+	else 
+            next
         end
 
     
@@ -290,24 +295,33 @@ end
 
 def zipFile(file, filename, entry)
 
-    # Modifiy entry to match in-archive path
-    entry = File.basename(entry)
 
-    puts "...Updating: #{file}"
-    puts "             #{filename} -> #{entry}"
-    `zip -f #{file} #{entry}`
+    if File.exists?(filename) 
 
-    #Zip::File.open(file) do |zip_update|
+	# Modifiy entry to match in-archive path
+	#entry = File.basename(entry)
+
     #    puts "...Updating: #{file}"
     #    puts "             #{filename} -> #{entry}"
-    #    #zip_update.replace("#{entry}","#{filename}")
-    #    temp_n = "#{SecureRandom.urlsafe_base64}.png"
-    #    zip_update.remove("#{entry}")
-    #    zip_update.add(temp_n, filename)
-    #    zip_update.rename(temp_n, entry)
-    #end
+    #    `zip -f #{file} #{entry}`
 
-    puts "...OK."
+	Zip::File.open(file) do |zip_update|
+	    puts "...Updating: #{file}"
+	    puts "             #{filename} -> #{entry}"
+	    #zip_update.replace("#{entry}","#{filename}")
+            f_ext = "#{File.basename(filename).split('.').last}"
+	    temp_n = "#{SecureRandom.urlsafe_base64}.#{f_ext}"
+	    zip_update.remove(entry)
+	    zip_update.add(temp_n, filename)
+	    zip_update.rename(temp_n, entry)
+	end
+        puts "...OK."
+
+    else
+        puts "...ERROR! File not found: #{filename}" 
+        puts "   Failed to update: #{file}"
+        puts "      Archived file: #{entry}"
+    end
 
     # Update doc.kml in zip archive
     #`zip -u #{file} -j #{doc}`
