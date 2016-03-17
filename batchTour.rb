@@ -44,7 +44,7 @@ TemplateOverlayKML = %(<?xml version="1.0" encoding="UTF-8"?>
         <name><%= name %></name>
         <Icon><href><%= name %>.png</href></Icon>
         <overlayXY x="<%= so_xy[0] %>" y="<%= so_xy[1] %>" xunits="fraction" yunits="fraction"/>
-        <screenXY x="<%= so_xy[2] %>" y='<%= {so_xy[3] %>" xunits="fraction" yunits="fraction"/>
+        <screenXY x="<%= so_xy[2] %>" y="<%= so_xy[3] %>" xunits="fraction" yunits="fraction"/>
         <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
         <size x="<%= so_xy[4] %>" y="<%= so_xy[5] %>" xunits="fraction" yunits="fraction"/>
     </ScreenOverlay>
@@ -277,16 +277,17 @@ def makeOverlayKML
 
     # Collect Images
     images=[]
-    images=Dir.glob("#{$options[:images]}/*.{jpg,png}")
+    images=Dir.glob("#{$options[:images]}/**.{jpg,png}")
 
     # Build KML from template
     images.each do |i|
         renderer = ERB.new TemplateOverlayKML
         filename = File.basename(i)
         filetype = File.extname(filename)
+        #name = filename.gsub(' ','-').downcase
         name = File.basename(i,File.extname(i)).gsub(' ','-').downcase
         so_xy = $options[:overlayXY]
-      kml_file = "#{$options[:images]}/#{name}.kml"
+        kml_file = "#{$options[:images]}/#{name}.kml"
 
         puts "Building #{name} KML..."
         kml = renderer.result(binding)
@@ -600,10 +601,10 @@ def makeOrbit
 
         # orbit around "p", which is a kamelopard point() using values from the first placemark in the data file
         f = make_view_from(p)
-        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 90, {:duration => 13, :step => 7, :already_there => true} )
+        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 90, {:duration => 30, :step => 7, :already_there => true} )
 
         # pause
-        pause 1.5 
+        pause 4 
 
         # Special Case
         unless ARGV[1].nil? 
