@@ -99,6 +99,7 @@ def getOpts
         $options[:autpolay] = 'director'
         $options[:infile] = 'doc.kml'
         $options[:inline] = 'true'
+        $options[:orbit] = %w(90 30 7)
         $options[:overlayXY] = %w(0 1 0 1 -1 -1)
 
         opts.banner = "Usage: example.rb [options] -A {director,ispaces,roscoe} FILE"
@@ -116,8 +117,9 @@ def getOpts
             $options[:assetdir] = dir
         end
         opts.on("-fTYPE","--flight TYPE", FlightTypes, 
-            "Build flight dynamics using TYPE",
-            " (#{FlightTypes})") do |flight|
+            "Build flight dynamics using TYPE", 
+            " (#{FlightTypes})",
+            " (orbit defaults: #{$options[:orbit]})") do |flight|
             $options[:flight] = flight
         end
         opts.on("-gTYPE","--graphic TYPE", GraphicTypes, 
@@ -139,6 +141,19 @@ def getOpts
                 $abs_const[:tilt] = override[2]
             end
             puts "...Override abstract_view: #{$abs_const}."
+        end
+        opts.on("-O", "--overrideOrbit t,d,s", Array, 
+            "Override abstract view: theta,duration,step") do |overrideOrbit|
+            # Modify w/ overrides
+            unless $options[:overrideOrbit].nil?
+                if overrideOrbit.length == 3 
+                   $options[:orbit] = overrideOrbit
+                else
+                   puts "...Invalid Orbit dynamics specified"
+                   exit 1
+                end
+            end
+            puts "...Override Orbit dynamics: #{$options[:orbit]}."
         end
         opts.on("-r", "--regions", "Build tour w/ Regions") do |regions|
             $options[:regions] = true 
@@ -429,6 +444,9 @@ def collectPoints(infile)
             CSV.foreach(infile) do |line|
                 if firstline  
                      firstline = false
+
+                     # Find geoCoord
+
                      next
                 end
 
@@ -581,6 +599,11 @@ def makeOrbit
     # fly to each point
     $points.each_with_index do |p,i|
 
+        # Set orbit dynamics
+        init = $options[:orbit][0].to_f
+        dur = $options[:orbit][1].to_f
+        step = $options[:orbit][2].to_f
+
         # Create new Doc if user specified --each-write
         unless $options[:inline]
 
@@ -601,7 +624,7 @@ def makeOrbit
 
         # orbit around "p", which is a kamelopard point() using values from the first placemark in the data file
         f = make_view_from(p)
-        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + 90, {:duration => 30, :step => 7, :already_there => true} )
+        orbit( f, p[:range], p[:tilt], p[:heading].to_f, p[:heading].to_f + init, {:duration => dur, :step => step, :already_there => true} )
 
         # pause
         pause 4 
@@ -730,11 +753,15 @@ def modAttr(p)
     if p[:name].nil?
         p[:name] = "Nil-Name-#{SecureRandom.urlsafe_base64}"
     end
+
     doc_name = "#{p[:name].gsub(/[-_]/,' ').gsub(/[(,)]/,'-').split.map(&:capitalize).join(' ')}"
-    puts "Building #{doc_name} #{$options.fetch(:flight).capitalize}..."
+
+    flightType = $options.fetch(:flight)
+
+    puts "Building #{doc_name} #{flightType.capitalize}..."
 
     # name the Document using the data filename
-    name_document = "#{doc_name} #{$options.fetch(:flight).capitalize}"
+    name_document = "#{doc_name} #{flightType.capitalize}"
     tourname = name_document.gsub(' ','-').downcase
 
     $data_attr[:docName] =  doc_name
@@ -748,13 +775,16 @@ def setAttr(infile)
     $data_attr = {} 
 
     # Process document name
-  data_filename = File.basename(infile,'.*')
+    data_filename = File.basename(infile,'.*')
     doc_name = "#{data_filename.gsub(/[-_]/,' ').split.map(&:capitalize).join(' ').chomp(".kml")}"
-    puts "Building #{doc_name} #{$options.fetch(:flight).capitalize}..."
+    
+    flightType = $options.fetch(:flight)
+  
+    puts "Building #{doc_name} #{flightType.capitalize}..."
 
     # name the Document using the data filename
-    name_document = "#{doc_name} #{$options.fetch(:flight).capitalize}"
-    tourname = "#{name_document.gsub(' ','-').downcase}-#{$options.fetch(:flight)}"
+    name_document = "#{doc_name} #{flightType.capitalize}"
+    tourname = "#{name_document.gsub(' ','-').downcase}-#{flightType}"
 
     $data_attr = { :dataFilename => data_filename, :docName => doc_name, :nameDocument => name_document, :tourName => tourname }
 
