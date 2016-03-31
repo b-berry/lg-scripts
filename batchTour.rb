@@ -101,6 +101,7 @@ def getOpts
         $options[:inline] = 'true'
         $options[:orbit] = %w(90 30 7)
         $options[:overlayXY] = %w(0 1 0 1 -1 -1)
+        $options[:placemarks] = false 
 
         opts.banner = "Usage: example.rb [options] -A {director,ispaces,roscoe} FILE"
         opts.on("-h", "--help", "Prints this help") do
@@ -127,6 +128,10 @@ def getOpts
             " (#{GraphicTypes})") do |gtype|
             $options[:graphic] = gtype
         end
+        opts.on("-i", "--iconStylye IMG","Set path to placemark icon", 
+            " Default: nil") do |icon|
+            $options[:iconStyle] = icon
+        end
         opts.on("-m", "--migrate [to ROS] PATH") do |migrate|
             $options[:migrate] = true
             $options[:KMLfiles] = migrate
@@ -141,6 +146,10 @@ def getOpts
                 $abs_const[:tilt] = override[2]
             end
             puts "...Override abstract_view: #{$abs_const}."
+        end
+        opts.on("-p", "--placemarks","Build KML placemarks only", 
+            " Default: nil") do |pmrk|
+            $options[:placemarks] = true
         end
         opts.on("-O", "--overrideOrbit t,d,s", Array, 
             "Override abstract view: theta,duration,step") do |overrideOrbit|
@@ -431,27 +440,30 @@ def collectPoints(infile)
     # Test infile TYPE
     infile_attr = infile.split('.')
 
-    infile_type = infile_attr.last
+    infile_type = infile_attr.last.downcase
 
     case infile_type
         when "csv"
 
             # Collect points from CSV file
             puts "...reading CSV..."
+            header = []
             $points = []
             firstline = true
             # Gather data points
             CSV.foreach(infile) do |line|
                 if firstline  
-                     firstline = false
-
-                     # Find geoCoord
-
-                     next
+                    firstline = false
+                    # Set header info
+                    header << line.map{|l| l.chomp}
+                    next
                 end
 
-                # Skip missing lat/lon  
-                if line[3].nil? or line[4].nil?
+                # Build Hash Collection
+                #myLine = Hash[header.collect {|v| [v.gsub(' ','-').downcase,line[header.index(v).to_f]]}]
+
+                 # Skip missing lat/lon  
+                if line[14].nil? or line[15].nil?
                     next
                 end
 
@@ -462,16 +474,44 @@ def collectPoints(infile)
                     tilt = $abs_const.fetch(:tilt)
                 end 
 
+
+                # $points << line.map{|data| {
+                #     line.each do |val|
+                #         index = line.index(val)
+                #         ":#{header[index]}" => val}}
+                #     end
+                
+                # Test for lat/long
+                #if myLine.key?("lat*") and myLine.key?("lng") 
+
+                #$points << myLine
+
+                # JLL Points Map
                 $points << {
-                    :name      => line[2],
-                    :latitude  => line[3].to_f,
-                    :longitude => line[4].to_f,
+                    :city       => line[0],
+                    :country    => line[1],
+                    :name       => line[2],
+                    :vendor     => line[3],
+                    :vCapital   => line[4],
+                    :sBroker    => line[5],
+                    :purchaser  => line[6],
+                    :pCapital   => line[7],
+                    :bBroker    => line[8],
+                    :year       => line[9],
+                    :quarter    => line[10],
+                    :price      => line[11],
+                    :address    => line[12],
+                    :sector     => line[13],  
+                    :latitude  => line[14].to_f,
+                    :longitude => line[15].to_f,
                     :heading   => heading.to_f,
                     :range     => range.to_f,
                     :tilt      => tilt.to_f
                 }
 
             end
+
+            # Find geodatas
 
         when "kml"
     
@@ -712,6 +752,27 @@ def makeSpline
 
 end
 
+def makePlacemarks
+
+    # Create KML Document
+    nameDoc
+    name_folder = "#{$data_attr[:tourname]}"
+
+    # Make Placemark Style
+    pl_style = style(:icon => iconstyle("#{$options[:iconStyle]}", :scale => 3.5, :hotspot => xy(0.5,0)), :label => labelstyle(0, :color => 'ff5e9cbc'))
+
+    $points.each do |pmark|
+
+        name = pmark[:name].to_s
+        lat  = pmark[:latitude].to_f
+        lng  = pmark[:longitude].to_f
+
+        # Store loc info 
+        get_folder << placemark(name, :geometry => point(lng,lat,75,:relativeToGround), :styleUrl => pl_style)
+
+    end
+end
+
 def makeTour    
 
     # Make autoplay link
@@ -777,14 +838,25 @@ def setAttr(infile)
     # Process document name
     data_filename = File.basename(infile,'.*')
     doc_name = "#{data_filename.gsub(/[-_]/,' ').split.map(&:capitalize).join(' ').chomp(".kml")}"
-    
-    flightType = $options.fetch(:flight)
-  
-    puts "Building #{doc_name} #{flightType.capitalize}..."
 
-    # name the Document using the data filename
-    name_document = "#{doc_name} #{flightType.capitalize}"
-    tourname = "#{name_document.gsub(' ','-').downcase}-#{flightType}"
+    # Handle document intent    
+    if $options[:placemarks] 
+
+        puts "Building #{doc_name} KML..."
+
+        # name the Document using the data filename
+        name_document = "#{doc_name} Placemarks"
+        tourname = "#{name_document.gsub(' ','-').downcase}"
+
+    else
+
+        flightType = $options.fetch(:flight)
+        puts "Building #{doc_name} #{flightType.capitalize}..."
+
+        # name the Document using the data filename
+        name_document = "#{doc_name} #{flightType.capitalize}"
+        tourname = "#{name_document.gsub(' ','-').downcase}-#{flightType}"
+    end
 
     $data_attr = { :dataFilename => data_filename, :docName => doc_name, :nameDocument => name_document, :tourName => tourname }
 
@@ -825,8 +897,13 @@ unless infile.nil?
     end
 
     # Build gx:Tour if flight type specified
-    if FlightTypes.include? $options[:flight] 
-        #makeTour(infile)
+    #if FlightTypes.include? $options[:flight] 
+    #    makeTour
+    #else
+    if $options[:placemarks]
+        makePlacemarks
+        writeTour
+    else
         makeTour
     end
 
