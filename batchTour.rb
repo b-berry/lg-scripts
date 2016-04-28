@@ -8,6 +8,7 @@ require 'kamelopard'
 require 'kamelopard/spline'
 require 'nokogiri'
 require 'optparse'
+require 'securerandom'
 
 include Kamelopard
 include Kamelopard::Functions
@@ -548,6 +549,20 @@ def collectPoints(infile)
             #longitude = parseJson(json_hash
             puts "...done."
 
+        when "txt"
+
+            # Collect points from queries.txt type file
+            puts "...reading TXT..."
+            q = []
+
+            txt_file = File.read(ARGV[0])
+            txt_file.each_line do | line |
+                query = line.split("@")
+                q << {:planet => query[0], :name => query[1], :flytoview => query[2].sub("flytoview=","").chomp}
+            end
+
+            parseTxt(q)
+
         else
             
             # Handle Error and exit
@@ -595,6 +610,65 @@ def parseJson(d)
     end
 
 end
+
+def parseTxt(q)
+
+    # Build Tours per Location
+    q.each do | geo |
+        # Skip Location if not earth
+        next unless geo[:planet] == "earth"
+        # Continue building tour
+        gname = geo[:name]
+        name_doc = gname
+        tourname = "#{gname} Tour"
+        file_name = gname.sub(" ","-").downcase
+        #tour_doc = Kamelopard::Document.new "#{name_doc}", :filename => file_name
+
+        modAttr(geo)
+
+        #$data_attr[:docName] =  doc_name
+        #$data_attr[:nameDocument] = name_document
+        #$data_attr[:tourName] = tourname
+
+        puts "...building Tour: #{$data_attr[:tourName]}"
+
+        nameDoc
+
+        #$data_attr[:nameDocument] = "#{name_doc}"
+        #$data_attr[:tourName] = "#{tourname}".gsub(' ','-').downcase
+
+        # Make Autoplay link
+        makeAutoplay
+
+        # fly to each point
+        # Process XML :flyto
+        xml_str = geo.fetch(:flytoview)
+        # Convert to Placemark String
+        xml_plmrk_str = "<kml xmlns=\"http://www.opengis.net/kml/2.2\" xmlns:gx=\"http://www.google.com/kml/ext/2.2\" xmlns:kml=\"http://www.opengis.net/kml/2.2\"><Document><Placemark>#{xml_str}</Placemark></Document></kml>"
+        # Create XML Document
+        xml_doc = XML::Parser.string(xml_plmrk_str).parse
+        #each_placemark(XML::Document.file("#{xml_plmrk_str}")) do |p,v|
+
+        $points = []
+        each_placemark(xml_doc) do |p,v|
+            $points << v
+        end
+        
+        $points.each do | flyto |
+
+            makeTour
+
+            #fly_to make_view_from(flyto), :duration => 4
+
+            # pause
+            #pause 2
+        end
+        
+        writeTour
+
+    end
+end
+
 
 def makeFlyto
 
