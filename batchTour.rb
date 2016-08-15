@@ -44,10 +44,10 @@ TemplateOverlayKML = %(<?xml version="1.0" encoding="UTF-8"?>
     <ScreenOverlay id="<%= name %>-id">
         <name><%= name %></name>
         <Icon><href><%= name %>.png</href></Icon>
-        <overlayXY x="<%= so_xy[0] %>" y="<%= so_xy[1] %>" xunits="fraction" yunits="fraction"/>
-        <screenXY x="<%= so_xy[2] %>" y="<%= so_xy[3] %>" xunits="fraction" yunits="fraction"/>
+        <overlayXY x="<%= so_xy[0] %>" y="<%= so_xy[2] %>" xunits="<%= so_xy[1] %>" yunits="<%= so_xy[3] %>"/>
+        <screenXY x="<%= so_xy[4] %>" y="<%= so_xy[6] %>" xunits="<%= so_xy[5] %>" yunits="<%= so_xy[7] %>"/>
         <rotationXY x="0" y="0" xunits="fraction" yunits="fraction"/>
-        <size x="<%= so_xy[4] %>" y="<%= so_xy[5] %>" xunits="fraction" yunits="fraction"/>
+        <size x="<%= so_xy[8] %>" y="<%= so_xy[10] %>" xunits="<%= so_xy[9] %>" yunits="<%= so_xy[11] %>"/>
     </ScreenOverlay>
   </Document>
 </kml>
@@ -101,7 +101,7 @@ def getOpts
         $options[:infile] = 'doc.kml'
         $options[:inline] = 'true'
         $options[:orbit] = %w(90 30 7)
-        $options[:overlayXY] = %w(0 1 0 1 -1 -1)
+        $options[:overlayXY] = %w(0 fraction 1 fraction 0 fraction 1 fraction -1 fraction -1 fraction)
         $options[:placemarks] = false 
 
         opts.banner = "Usage: example.rb [options] -A {director,ispaces,roscoe} FILE"
@@ -137,14 +137,15 @@ def getOpts
             $options[:migrate] = true
             $options[:KMLfiles] = migrate
         end
-        opts.on("-o", "--override h,r,t", Array, 
+        opts.on("-o", "--override a,h,r,t", Array, 
             "Override abstract view: heading,tilt,range") do |override|
             $options[:override] = override
             # Modify w/ overrides
             unless $options[:override].nil? 
-                $abs_const[:heading] = override[0]
-                $abs_const[:range] = override[1]
-                $abs_const[:tilt] = override[2]
+                $abs_const[:altitude] = override[0]
+                $abs_const[:heading] = override[1]
+                $abs_const[:range] = override[2]
+                $abs_const[:tilt] = override[3]
             end
             puts "...Override abstract_view: #{$abs_const}."
         end
@@ -172,7 +173,7 @@ def getOpts
             $options[:screenOverlay] = true
             $options[:images] = path
         end
-        opts.on("-x", "--xy-overlay x,y,x,y,x,y", Array,
+        opts.on("-x", "--xy-overlay overlayXY(),screnXY(),sizeXY()", Array,
             "Overide default ScreenOverlay anchor: #{$options[:overlayXY]}") do |so|
             $options[:overlayXY] = so
             puts "...Override ScreenOverlay anchor: #{$options[:screenXY]}"
@@ -638,7 +639,7 @@ def parseTxt(q)
         #$data_attr[:tourName] = "#{tourname}".gsub(' ','-').downcase
 
         # Make Autoplay link
-        makeAutoplay
+        #makeAutoplay
 
         # fly to each point
         # Process XML :flyto
