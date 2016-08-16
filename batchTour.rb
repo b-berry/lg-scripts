@@ -890,7 +890,7 @@ def modAttr(p)
         p[:name] = "Nil-Name-#{SecureRandom.urlsafe_base64}"
     end
 
-    doc_name = "#{p[:name].gsub(/[-_]/,' ').gsub(/[(,)]/,'-').split.map(&:capitalize).join(' ')}"
+    doc_name = "#{p[:name].gsub(/[-_&\/:]/,' ').gsub(/[(,)]/,' ').gsub(/\<(.*)\>/,'').split.map(&:capitalize).join(' ').to_str}"
 
     flightType = $options.fetch(:flight)
 
@@ -898,7 +898,7 @@ def modAttr(p)
 
     # name the Document using the data filename
     name_document = "#{doc_name} #{flightType.capitalize}"
-    tourname = name_document.gsub(' ','-').downcase
+    tourname = name_document.gsub(' ','-').gsub('--','-').downcase
 
     $data_attr[:docName] =  doc_name
     $data_attr[:nameDocument] = name_document
