@@ -21,6 +21,7 @@ xml-simple (1.1.5)
 
 HELP MENU:
 
+```
 Usage: example.rb [options] -A {director,ispaces,roscoe} FILE
     -h, --help                       Prints this help
     -a, --autoplay TYPE              Build AutoPlay query using TYPE
@@ -34,7 +35,7 @@ Usage: example.rb [options] -A {director,ispaces,roscoe} FILE
     -r, --regions                    Build tour w/ Regions
     -s, --screenOverlay PATH
     -w, --write-each                 Build [flyto, orbit] tour for each placemark
-
+```
 
 EXAMPLES:
 
