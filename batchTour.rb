@@ -6,12 +6,17 @@ require 'fileutils'
 require 'json'
 require 'kamelopard'
 require 'kamelopard/spline'
+require 'logger'
 require 'nokogiri'
 require 'optparse'
 require 'securerandom'
 
 include Kamelopard
 include Kamelopard::Functions
+
+
+$log = Logger.new('/var/log/batchTour.log')
+$log.level = Logger::WARN
 
 #require_relative("foo.rb")
 
@@ -106,7 +111,7 @@ def getOpts
 
         opts.banner = "Usage: example.rb [options] -A {director,ispaces,roscoe} FILE"
         opts.on("-h", "--help", "Prints this help") do
-            puts opts
+            STDOUT.puts opts
             exit
         end
         opts.on("-aTYPE","--autoplay TYPE", AutoplayTypes, 
@@ -147,7 +152,7 @@ def getOpts
                 $abs_const[:range] = override[2]
                 $abs_const[:tilt] = override[3]
             end
-            puts "...Override abstract_view: #{$abs_const}."
+            STDERR.puts "...Override abstract_view: #{$abs_const}."
         end
         opts.on("-p", "--placemarks","Build KML placemarks only", 
             " Default: nil") do |pmrk|
@@ -160,11 +165,11 @@ def getOpts
                 if overrideOrbit.length == 3 
                    $options[:orbit] = overrideOrbit
                 else
-                   puts "...Invalid Orbit dynamics specified"
+                   STDERR.puts "...Invalid Orbit dynamics specified"
                    exit 1
                 end
             end
-            puts "...Override Orbit dynamics: #{$options[:orbit]}."
+            STDOUT.puts "...Override Orbit dynamics: #{$options[:orbit]}."
         end
         opts.on("-r", "--regions", "Build tour w/ Regions") do |regions|
             $options[:regions] = true 
@@ -176,7 +181,7 @@ def getOpts
         opts.on("-x", "--xy-overlay overlayXY(),screnXY(),sizeXY()", Array,
             "Overide default ScreenOverlay anchor: #{$options[:overlayXY]}") do |so|
             $options[:overlayXY] = so
-            puts "...Override ScreenOverlay anchor: #{$options[:screenXY]}"
+            STDOUT.puts "...Override ScreenOverlay anchor: #{$options[:screenXY]}"
         end
         opts.on("-w", "--write-each", "Build [flyto, orbit] tour for each placemark") do |write|
             $options[:inline] = false 
@@ -210,8 +215,8 @@ def makeAutoplay
             # ROSCOE Autoplay
             get_folder << Kamelopard::NetworkLink.new( URI::encode("http://localhost:8765/query.html?query=playtour=#{tourname}"), {:name => "Autoplay", :flyToView => 0, :refreshVisibility => 0} )
         else
-            puts "No system architecture specified"
-            puts "... using default 'Director'"
+            STDERR.puts "No system architecture specified"
+            STDERR.puts "... using default 'Director'"
             # Director Autoplay
             get_folder << Kamelopard::NetworkLink.new( URI::encode("http://localhost:81/change.php?query=playtour=#{tourname}\&amp;name=#{name_document}"), {:name => "Autoplay", :flyToView => 0, :refreshVisibility => 0} )
     end
@@ -223,21 +228,21 @@ def makeROS
     pathSrc = $options.fetch[:KMLfiles]
 
     # Collect files
-    puts "Searching #{pathSrc}/ for #{fileType.upcase} files..."
-    puts
+    STDOUT.puts "Searching #{pathSrc}/ for #{fileType.upcase} files..."
+    STDOUT.puts
 
     filesKML=[]
     filesKML=Dir.glob("#{pathSrc}/**/*.#{fileType}")
 
     # Test results
     if filesKML.empty? 
-        puts "No files found!"
+        STDERR.puts "No files found!"
         exit
     end
 
     # Report Findings.
-    puts filesKML
-    puts "Found #{filesKML.length} KML files." 
+    STDOUT.puts filesKML
+    STDOUT.puts "Found #{filesKML.length} KML files." 
 
     n = 0
     # Operate over files
@@ -247,7 +252,7 @@ def makeROS
         #    break
         #end
 
-        puts "...editing #{file}:"
+        STDOUT.puts "...editing #{file}:"
         doc = File.open("#{file}") { |f| Nokogiri::XML(f) }
         networkLink = doc.css("NetworkLink") 
         # Skip file if no NetworkLink present
@@ -272,25 +277,25 @@ def makeROS
                 playtourTest = query.split("=").index("playtour")
                 @tourname = query.split("=")[playtourTest.to_f + 1]
             end
-            puts @tourname
+            STDOUT.puts @tourname
             # Confirm tourname
             if @tourname.nil? then
-                puts "No Tourname Found! Skipping NetworkLink"
+                STDERR.puts "No Tourname Found! Skipping NetworkLink"
                 next
             end
             #queryRosString = URI.encode_www_form(QueryROS => @tourname)  
             queryRosString = "#{QueryROS}#{@tourname}"
             # Modify Autoplay Url
             hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
-            puts "...modifying Url: #{hrefRosReplace}."
+            STDOUT.puts "...modifying Url: #{hrefRosReplace}."
             networkLink.at_css("href").content = hrefRosReplace         
         end
 
         # Write modified changes
         #File.write(file, doc.to_xml)
-        puts "...Writing modifications..."
+        STDOUT.puts "...Writing modifications..."
         File.open(file, 'w') { |f| f.print(doc.to_xml) }
-        puts "...done."
+        STDOUT.puts "...done."
         
         # Testing
         #n = n + 1
@@ -315,13 +320,13 @@ def makeOverlayKML
         so_xy = $options[:overlayXY]
         kml_file = "#{$options[:images]}/#{name}.kml"
 
-        puts "Building #{name} KML..."
+        STDOUT.puts "Building #{name} KML..."
         kml = renderer.result(binding)
         File.write(kml_file, kml)
-        puts "...done."
-        puts "..zipping #{name} KML..."
+        STDOUT.puts "...done."
+        STDOUT.puts "..zipping #{name} KML..."
         `zip #{kml_file.chomp('.kml')}.kmz -j #{kml_file} #{i}`
-        puts "...done."
+        STDOUT.puts "...done."
  
     end
 end
@@ -344,7 +349,7 @@ def makeOverlayHTML(p)
   `wkhtmltoimage --width 980 --disable-smart-width "#{html_file}" "#{png_file}"`
 
     # Make screenOverlay
-    puts "...populating w/ overlay: #{png_file}"
+    STDOUT.puts "...populating w/ overlay: #{png_file}"
     get_folder << screenoverlay(
         :href => "#{png_file}",
         :screenXY  => xy(0.5, 0.95),
@@ -359,7 +364,7 @@ def makeRegions(infile)
 
     # Process document name
     doc_name = "#{infile.gsub(/[-_]/,' ').split.map(&:capitalize).join(' ').chomp(".kml")}"
-    puts "Building #{doc_name} Regionation..."
+    STDOUT.puts "Building #{doc_name} Regionation..."
 
     # name the Document using the data filename
     name_document = "#{doc_name} Regionation"
@@ -369,7 +374,7 @@ def makeRegions(infile)
     i = 1
     $points.each do | p, v |
         # Build KML Regions
-        puts "Generating Region#{i}: #{p[:name]} Overlay"
+        STDOUT.puts "Generating Region#{i}: #{p[:name]} Overlay"
  
         # Create new folder for each Region && screenOverlay 
         Kamelopard::Folder.new("#{p[:name]}")
@@ -403,37 +408,37 @@ def makeRegions(infile)
             end
         end
         
-        puts "...adding overlay to region folder"
+        STDOUT.puts "...adding overlay to region folder"
 
         makeOverlayHTML(p)
 
-        puts "...done."
+        STDOUT.puts "...done."
         i += 1
     end
 
-    puts "Writing Regions to file..."
+    STDOUT.puts "Writing Regions to file..."
 
     # output to the same name as the data file, except with .kml extension
-    puts "doc_name is #{doc_name} of class: #{doc_name.class}"
+    STDOUT.puts "doc_name is #{doc_name} of class: #{doc_name.class}"
     region_file = "#{doc_name.gsub(' ','-').downcase}-regions.kml"
-    puts "region_file is #{region_file} of class: #{region_file.class}"
+    STDOUT.puts "region_file is #{region_file} of class: #{region_file.class}"
     write_kml_to region_file
 
-    puts "...Done."
+    STDOUT.puts "...Done."
 
     sleep(2)
 
-    puts "..zipping regionation files..."
+    STDOUT.puts "..zipping regionation files..."
     `zip #{region_file.chomp('.kml')}.kmz  -r #{region_file} files/`
-    puts "...done!"
+    STDOUT.puts "...done!"
  
 end
 
 def makeKMZ(filename,dirname)
 
-    puts "..zipping regionation files..."
+    STDOUT.puts "..zipping regionation files..."
     `zip #{filename.chomp('.kml')}.kmz  -r #{filename} files/`
-    puts "...done!"
+    STDOUT.puts "...done!"
 
 end
 
@@ -448,7 +453,7 @@ def collectPoints(infile)
         when "csv"
 
             # Collect points from CSV file
-            puts "...reading CSV..."
+            STDOUT.puts "...reading CSV..."
             header = []
             $points = []
             firstline = true
@@ -518,7 +523,7 @@ def collectPoints(infile)
         when "kml"
     
             # Collect points from KML file
-            puts "...reading KML..."
+            STDOUT.puts "...reading KML..."
             $points = []
             each_placemark(XML::Document.file(ARGV[0])) do |p,v|
                 unless $options[:override].nil?
@@ -529,12 +534,12 @@ def collectPoints(infile)
                 end 
                 $points << v
             end
-            puts "...done."
+            STDOUT.puts "...done."
 
         when "json"
 
             # Collect points from JSON file
-            puts "...reading JSON..."
+            STDOUT.puts "...reading JSON..."
             $points = []
             # Do things
             json_file = File.read(ARGV[0])
@@ -548,12 +553,12 @@ def collectPoints(infile)
             #title = parseJson(json_hash,title)
             #latitude = parseJson(json_hash,latitude)
             #longitude = parseJson(json_hash
-            puts "...done."
+            STDOUT.puts "...done."
 
         when "txt"
 
             # Collect points from queries.txt type file
-            puts "...reading TXT..."
+            STDOUT.puts "...reading TXT..."
             q = []
 
             txt_file = File.read(ARGV[0])
@@ -567,8 +572,8 @@ def collectPoints(infile)
         else
             
             # Handle Error and exit
-            puts "...Cannot parse infile type."
-            puts "Aborting!"
+            STDERR.puts "...Cannot parse infile type."
+            STDERR.puts "Aborting!"
             exit
     end
 end
@@ -594,7 +599,7 @@ def parseJson(d)
                 title = p.fetch("title")
                 heading = p.fetch("heading")
                 location = p.fetch("location")
-                puts "Found: #{title},#{heading},#{location}"
+                STDOUT.puts "Found: #{title},#{heading},#{location}"
 
                 $points << {:title => title,
                             :heading => heading,
@@ -604,7 +609,7 @@ def parseJson(d)
 
               end
             else
-              puts "No pertinant keys found!"
+              STDERR.puts "No pertinant keys found!"
             end
           end
         end
@@ -631,7 +636,7 @@ def parseTxt(q)
         #$data_attr[:nameDocument] = name_document
         #$data_attr[:tourName] = tourname
 
-        puts "...building Tour: #{$data_attr[:tourName]}"
+        STDOUT.puts "...building Tour: #{$data_attr[:tourName]}"
 
         nameDoc
 
@@ -762,7 +767,7 @@ end
 
 def makeSecond(i)
 
-    puts "...Handling secondary file: #{ARGV[1]}"
+    STDOUT.puts "...Handling secondary file: #{ARGV[1]}"
     alt_marks = []
     # Read alt file 
     each_placemark(XML::Document.file(ARGV[1])) do |u,v|
@@ -773,7 +778,7 @@ def makeSecond(i)
     end
     
     if alt_marks[i].nil? 
-        puts "...No Placemark at location: #{i}. Skipping."
+        STDERR.puts "...No Placemark at location: #{i}. Skipping."
     else
         # Fly to 1st point
         fly_to make_view_from(alt_marks[i]), :duration => 3
@@ -781,7 +786,7 @@ def makeSecond(i)
         # pause
         pause 4
 
-        puts "...done."
+        STDOUT.puts "...done."
     end
 
 end
@@ -789,7 +794,7 @@ end
 def makeSpline
 
     # Define Splinea
-    puts "Generating spline path..."
+    STDOUT.puts "Generating spline path..."
     sp = SplineFunction.new($points.length.to_f)
 
     # Iniitiate spline array && screenOverlay regionation 
@@ -869,7 +874,7 @@ def makeTour
             makeSpline 
 
         else
-            puts "No tour :flight dynamic specified!"
+            STDERR.puts "No tour :flight dynamic specified!"
     end
 
     writeTour if $options[:inline]
@@ -894,7 +899,7 @@ def modAttr(p)
 
     flightType = $options.fetch(:flight)
 
-    puts "Building #{doc_name} #{flightType.capitalize}..."
+    STDOUT.puts "Building #{doc_name} #{flightType.capitalize}..."
 
     # name the Document using the data filename
     name_document = "#{doc_name} #{flightType.capitalize}"
@@ -917,7 +922,7 @@ def setAttr(infile)
     # Handle document intent    
     if $options[:placemarks] 
 
-        puts "Building #{doc_name} KML..."
+        STDOUT.puts "Building #{doc_name} KML..."
 
         # name the Document using the data filename
         name_document = "#{doc_name} Placemarks"
@@ -926,7 +931,7 @@ def setAttr(infile)
     else
 
         flightType = $options.fetch(:flight)
-        puts "Building #{doc_name} #{flightType.capitalize}..."
+        STDOUT.puts "Building #{doc_name} #{flightType.capitalize}..."
 
         # name the Document using the data filename
         name_document = "#{doc_name} #{flightType.capitalize}"
@@ -939,7 +944,7 @@ end
 
 def writeTour
 
-    puts "Writing gx:Tour to file..."
+    STDOUT.puts "Writing gx:Tour to file..."
 
     # Set current attributes
     tourname = $data_attr[:tourName]
@@ -948,7 +953,7 @@ def writeTour
     outfile = "#{$options[:assetdir]}/#{tourname}.kml"
     write_kml_to outfile
 
-    puts "...Done."
+    STDOUT.puts "...Done."
 
 end
 
@@ -986,26 +991,26 @@ unless infile.nil?
 
     # Set up dynamic content KMZ
     if $options[:regions] 
-        puts "Generating Regions..."
+        STDOUT.puts "Generating Regions..."
         sleep(1)
         makeRegions(infile)
-        puts "...done!"
+        STDOUT.puts "...done!"
     else
-        puts "No additional constructions indicated..."
+        STDOUT.puts "No additional constructions indicated..."
     end 
 end
 
 if $options[:screenOverlay]
-    puts "Generating Overlays..."
+    STDOUT.puts "Generating Overlays..."
     makeOverlayKML
-    puts "...done!"
+    STDOUT.puts "...done!"
 else if $options[:migrate]
-        puts "Initiating ROS migration..."
+        STDOUT.puts "Initiating ROS migration..."
         makeROS
-        puts "...done!"
+        STDOUT.puts "...done!"
     else
-        puts "No infile specified OR No secondary constructions specified!"
+        STDERR.puts "No infile specified OR No secondary constructions specified!"
     end
 end
 
-puts "Finished!"
+STDOUT.puts "Finished!"
