@@ -15,7 +15,7 @@ include Kamelopard
 include Kamelopard::Functions
 
 
-$log = Logger.new('/var/log/batchTour.log')
+$log = Logger.new('./batchTour.log')
 $log.level = Logger::WARN
 
 #require_relative("foo.rb")
