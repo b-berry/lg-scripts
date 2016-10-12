@@ -935,7 +935,7 @@ def setAttr(infile)
 
         # name the Document using the data filename
         name_document = "#{doc_name} #{flightType.capitalize}"
-        tourname = "#{name_document.gsub(' ','-').downcase}-#{flightType}"
+        tourname = "#{name_document.gsub(' ','-').downcase}"
     end
 
     $data_attr = { :dataFilename => data_filename, :docName => doc_name, :nameDocument => name_document, :tourName => tourname }
