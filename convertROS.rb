@@ -6,6 +6,14 @@ require 'open-uri'
 require 'securerandom'
 require 'zip'
 
+### Requirements
+# *** LOCAL GEMS ***
+#
+# nokogiri (1.6.8.1)
+# rubyzip (1.2.0)
+### 
+
+
 BackupName = "OLD"
 TempDir = ".tmp"
 FileType = ["kml","kmz"]
@@ -187,7 +195,7 @@ def unzipFile(file)
 
     zip_entries = []
     # RubyZip gem usage
-    d_name = File.basename(file).gsub('.','-')
+    d_name = File.basename(file).gsub('.','-').gsub(' ','-')
     t_path = "#{$path}/#{TempDir}/#{d_name}"
     Zip::File.open(file).each do |entry|
         fullname = entry.to_s	
