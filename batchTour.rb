@@ -161,13 +161,12 @@ def getOpts
         opts.on("-O", "--overrideOrbit t,d,s", Array, 
             "Override abstract view: theta,duration,step") do |overrideOrbit|
             # Modify w/ overrides
-            unless $options[:overrideOrbit].nil?
-                if overrideOrbit.length == 3 
-                   $options[:orbit] = overrideOrbit
-                else
-                   STDERR.puts "...Invalid Orbit dynamics specified"
-                   exit 1
-                end
+            if overrideOrbit.length == 3 
+                puts "User Specified Orbit Override: #{overrideOrbit}"
+               $options[:orbit] = overrideOrbit
+            else
+               STDERR.puts "...Invalid Orbit dynamics specified"
+               exit 1
             end
             STDOUT.puts "...Override Orbit dynamics: #{$options[:orbit]}."
         end
