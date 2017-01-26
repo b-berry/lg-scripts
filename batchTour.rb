@@ -143,7 +143,7 @@ def getOpts
             $options[:KMLfiles] = migrate
         end
         opts.on("-o", "--override a,h,r,t", Array, 
-            "Override abstract view: heading,tilt,range") do |override|
+            "Override abstract view: alt,heading,range,tilt") do |override|
             $options[:override] = override
             # Modify w/ overrides
             unless $options[:override].nil? 
