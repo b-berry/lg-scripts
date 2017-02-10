@@ -1,8 +1,12 @@
 #!/usr/bin/env ruby
 
 require 'fileutils'
+require 'logger'
 require 'nokogiri'
 require 'open-uri'
+require 'ostruct'
+require 'optparse'
+require 'pry'
 require 'securerandom'
 require 'zip'
 
@@ -14,7 +18,7 @@ require 'zip'
 ### 
 
 
-BackupName = "OLD"
+BackupName = ".backup"
 TempDir = ".tmp"
 FileType = ["kml","kmz"]
 HostROS ="http://localhost" 
@@ -23,62 +27,193 @@ PathROS = "/query.html"
 QueryROS = "?query=playtour="
 
 $files=[]
+$log = Logger.new('./batchTour.log')
+$log.level = Logger::WARN
+$options = {}
 
 # Set asset dir from command-line argument
-if ARGV[0].nil?
-    puts "ERROR: Please specify path to asset_storage."
-    exit
-else 
-    $path = ARGV[0]
+#if ARGV[0].nil?
+#    puts "ERROR: Please specify path to asset_storage."
+#    exit
+#else 
+#    $path = ARGV[0]
+#end
+
+
+class Optparse
+
+    def self.parse(args) 
+
+        # Parse Options
+        options = OpenStruct.new
+        options.autoplay = false
+        options.backup = BackupName
+        options.encoding = "utf8"
+
+        opts = OptionParser.new do |opts|
+            # Set Defaults here
+            opts.banner = "Usage: convertROS.rb [options] -d $PATH"
+
+            opts.separator ""
+            opts.separator "Specific options:"
+
+            opts.on("-d", "--asset-dir PATH", 
+                "Require asset-dir PATH") do |dir|
+                # Test asset-dir PATH
+                if Dir.exists?(dir)
+                    options.dir = dir
+                else
+                    STDERR.puts "Specified asset-dir: #{dir}"
+                    STDERR.puts "  Does not exist.  Exiting!"
+                    exit 1
+                end
+            end
+            
+            opts.on("-a", "--autoplay",
+                "Run AutoPlay conversion") do |a|
+                options.autoplay = true
+            end
+                
+            opts.on("-b", "--backup-dir PATH", 
+                "Specify backup-dir PATH") do |dir|
+                options.backup = dir
+            end
+            
+            opts.on("-i N", Float, 
+                "Specify initial FOV INTEGER") do |n|
+                options.init = n
+            end
+
+            opts.on("-t N", Float, 
+                "Specify target FOV INTEGER") do |n|
+                options.target = n
+            end
+
+            opts.on_tail("-h", "--help", "Prints this help") do
+                STDOUT.puts opts
+                exit
+            end
+        end
+
+    opts.parse!(args)
+    options
+  end
+
 end
 
-def collectFiles
 
-    searchType = FileType.join(",")
+def collectFiles(path)
 
-    puts "Searching for #{searchType.upcase} files in #{$path}"
-
-    $files = Dir.glob("#{$path}/**.{#{searchType}}")
-
-end
-
-def createBackup
-
-    dir_b = "#{$path}/#{BackupName}/"
-
-    puts "Creating backupd dir: #{dir_b}"
-
-    FileUtils::mkdir_p dir_b 
-    FileUtils::cp $files, dir_b
+    files = {}
+    FileType.each do |ext|
+        files[ext.to_sym] = Dir.glob("#{path}/**.#{ext}")
+        STDOUT.puts "Found #{ext.upcase} in #{path.gsub('/','')}: #{files[ext.to_sym].length}" 
+    end
+ 
+    return files 
 
 end
 
-def parseFiles
+
+def backupFile(file,options)
+
+    # Test backup abs or rel
+    if options.backup[0] == '/'
+        dir = options.backup
+    else 
+        dir = [options.dir,options.backup.gsub('./','')].join('/')
+    end
+
+    unless Dir.exists?(dir)
+        FileUtils.mkdir_p dir
+    end
+
+    # Test dir creation
+    unless Dir.exists?(dir)
+        STDERR.puts "Could not create specified backup-dir: #{dir}"
+        STDERR.puts "  Does not exist.  Exiting!"
+        exit 1
+    end
+
+    ## Backup file
+    FileUtils::cp file, dir
+
+    # Test backup 
+    bfile = [dir,File.basename(file)].join('/')
+    unless File.exists?(bfile)
+        STDERR.puts "Filed to create specified backup-file: #{bfile}"
+        STDERR.puts "  Check failed - File does not exist .  Exiting!"
+        exit 2
+    end
+
+end
+
+
+def parseFiles(files,options)
     
-    $files.each do |file|
+    files.keys.each do |type|
 
-        puts "Processing: #{file}:"
+        puts "Processing #{type}:"
 
-        # Test filetype 
-        ftype = File.extname(file)
-        ftype = `file #{file}`
-        case ftype
-        when /XML/
-            # Open KML file
-            doc = File.open(file) { |f| Nokogiri::XML(f) }
-            convertFile(doc)
-            writeFile(doc,file)
-        #when ".kmz"
-        when /Zip/
-            #zipFile(doc,file)
-            FileUtils::mkdir_p "#{$path}/#{TempDir}"
-            #processKmz(file)
-            unzipFile(file)
-        end    
+        files[type].each do |file|
+            # Test filetype 
+            ftype = `file #{file}`
+            case ftype
+            when /XML/
+                # Open KML file
+                doc = File.open(file) { |f| Nokogiri::XML(f) }
+                convertFile(doc,file,options)
+                writeFile(doc,file)
+            when /Zip/
+                #zipFile(doc,file)
+                FileUtils::mkdir_p "#{options.dir}/#{TempDir}"
+                #processKmz(file)
+                unzipFile(file,options)
+            end
+        end 
     end
 end
 
-def convertFile(doc)
+
+def convertAutoplay(url)
+
+        # Extract Director Url
+        href = URI.parse(url.css("href").text)
+        host = href.host
+        port = href.port
+        path = href.path
+        query = href.query
+
+        # Extract #{tourname}
+        if query.split('&').length > 1
+            query.split('&').each do |que|
+                playtourTest = que.split('=').index('playtour')
+                next if playtourTest.nil?
+                @tourname = que.split('=')[playtourTest.to_f + 1]
+            end
+        else
+            playtourTest = query.split('=').index('playtour')
+            @tourname = query.split('=')[playtourTest.to_f + 1]
+        end
+
+        # Confirm tourname
+        if @tourname.nil? then
+            puts "No Tourname Found! Skipping NetworkLink"
+            return 
+        end
+
+        #queryRosString = URI.encode_www_form(QueryROS => @tourname) 	
+        queryRosString = "#{QueryROS}#{@tourname}"
+
+        # Modify Autoplay Url
+        hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
+        puts "...Modifying Url: #{hrefRosReplace}"
+        return hrefRosReplace 
+
+end
+
+
+def convertFile(doc,file,options)
 
     networkLink = doc.css("NetworkLink") 
     # Skip file if no NetworkLink present
@@ -86,34 +221,13 @@ def convertFile(doc)
     # Get networkLink Name
     networkLinkName = networkLink.css("name")
     if networkLinkName.css("name").text  == "Autoplay" then 
-        # Extract Director Url
-        href = URI.parse(networkLink.css("href").text)
-        host = href.host
-        port = href.port
-        path = href.path
-        query = href.query
-        # Extract #{tourname}
-        if [ href.query.length > 1 ] then
-            href.query.split("&").each do |query|
-                playtourTest = query.split("=").index("playtour")
-                next if playtourTest.nil?
-                @tourname = query.split("=")[playtourTest.to_f + 1]
-            end
-        else
-            playtourTest = query.split("=").index("playtour")
-            @tourname = query.split("=")[playtourTest.to_f + 1]
+        # Backup File to be modified
+        backupFile(file,options)
+        if options.autoplay
+            hrefRosReplace = convertAutoplay(networkLink)
+            puts "...Modifying Url: #{hrefRosReplace}"
+            networkLink.at_css("href").content = hrefRosReplace
         end
-        # Confirm tourname
-        if @tourname.nil? then
-            puts "No Tourname Found! Skipping NetworkLink"
-            return 
-        end
-        #queryRosString = URI.encode_www_form(QueryROS => @tourname) 	
-        queryRosString = "#{QueryROS}#{@tourname}"
-        # Modify Autoplay Url
-        hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
-        puts "...Modifying Url: #{hrefRosReplace}"
-        networkLink.at_css("href").content = hrefRosReplace        	
     end
     return doc
 end
@@ -146,14 +260,14 @@ def writeFile(doc,file)
 
 end
 
-def testFiles
+def testFiles(files)
     # Test results
-    if $files.empty? 
-        puts "...ERROR: No files found!"
+    if files.empty? 
+        puts "...ERROR: No #{FileType} files found!"
         exit
     else
         # Report Findings.
-        puts "...found #{$files.length} KML files." 
+        puts "...found #{files.length} KML files." 
    end
 
 end
@@ -189,14 +303,14 @@ def processKmz(file)
 
 end
 
-def unzipFile(file)
+def unzipFile(file,options)
 
     puts "...Unpacking KMZ: #{file}..."
 
     zip_entries = []
     # RubyZip gem usage
     d_name = File.basename(file).gsub('.','-').gsub(' ','-')
-    t_path = "#{$path}/#{TempDir}/#{d_name}"
+    t_path = "#{options.dir}/#{TempDir}/#{d_name}"
     Zip::File.open(file).each do |entry|
         fullname = entry.to_s	
         filename = File.basename(fullname) 
@@ -208,7 +322,7 @@ def unzipFile(file)
             doc = Nokogiri::XML(doc_string)
 
             ## Process KML
-            convertFile(doc)
+            convertFile(doc,file,options)
 
             ## Test KML
             if doc_string == doc.serialize
@@ -349,23 +463,19 @@ end
 
 ### Run Time Operations Start Here ###
 
+options = Optparse.parse(ARGV)
+STDOUT.puts options
+
 # Issue warning
 puts "### WARNING!! ###"
-puts "# Running this script will modify asset_files in #{$path}"
+puts "# Running this script will modify asset_files in #{options.dir}"
 puts "# Ctrl + z now to cancel operations"
 puts
 
+    ## Give user quit option
     sleep(2)
 
-collectFiles
+files = collectFiles(options.dir)
 
-testFiles
-
-    sleep(2)
-
-createBackup
-
-# Process KML files
-parseFiles
-
-
+# Process files
+parseFiles(files,options)
