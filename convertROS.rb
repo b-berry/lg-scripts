@@ -10,13 +10,6 @@ require 'pry'
 require 'securerandom'
 require 'zip'
 
-### Requirements
-# *** LOCAL GEMS ***
-#
-# nokogiri (1.6.8.1)
-# rubyzip (1.2.0)
-### 
-
 
 BackupName = ".backup"
 TempDir = ".tmp"
@@ -26,18 +19,8 @@ PortROS =":8765"
 PathROS = "/query.html"
 QueryROS = "?query=playtour="
 
-$files=[]
 $log = Logger.new('./batchTour.log')
 $log.level = Logger::WARN
-$options = {}
-
-# Set asset dir from command-line argument
-#if ARGV[0].nil?
-#    puts "ERROR: Please specify path to asset_storage."
-#    exit
-#else 
-#    $path = ARGV[0]
-#end
 
 
 class Optparse
@@ -223,16 +206,24 @@ def convertFile(doc,file,options)
     if networkLinkName.css("name").text  == "Autoplay" then 
         # Backup File to be modified
         backupFile(file,options)
+
+        # Run autoplay convert
         if options.autoplay
             hrefRosReplace = convertAutoplay(networkLink)
             puts "...Modifying Url: #{hrefRosReplace}"
             networkLink.at_css("href").content = hrefRosReplace
         end
+
+        if options.initial and options.target
+
+        end
     end
     return doc
+
 end
 
-def imageResize(file, img, entry)
+
+def imageResize(file,img,entry)
 
     # input_image_filename, output_image_filename, max_width, max_height
     #Image.resize(img, img_r, 1215, 2160) 
@@ -249,6 +240,7 @@ def imageResize(file, img, entry)
 
 end
 
+
 def writeFile(doc,file)
 
     # Write modified changes
@@ -260,17 +252,6 @@ def writeFile(doc,file)
 
 end
 
-def testFiles(files)
-    # Test results
-    if files.empty? 
-        puts "...ERROR: No #{FileType} files found!"
-        exit
-    else
-        # Report Findings.
-        puts "...found #{files.length} KML files." 
-   end
-
-end
 
 def processKmz(file)
 
@@ -302,6 +283,7 @@ def processKmz(file)
 
 
 end
+
 
 def unzipFile(file,options)
 
@@ -414,6 +396,7 @@ def unzipFile(file,options)
     #end
 
 end
+
 
 def zipFile(file, filename, entry)
 
