@@ -1,7 +1,6 @@
 # TMUX Start Desktop Session
 
-#TMUX_NAME="desktop"
-TMUX_NAME="testop"
+TMUX_NAME="desktop"
 XTEST=$(DISPLAY=:0 xrandr | grep -c " connected")
 
 echo "Running xrandr test: $XTEST"
@@ -21,13 +20,6 @@ case $XTEST in
     ;;
 
 esac
-
-# Test for exisitng active session
-#if [ ! -z $TMUX ]; then
-#  echo "TMUX session detected, aboring!"
-#  echo "... unset \$TMUX and run again."
-#  exit 2
-#fi
 
 # Test for exisitng active session
 tmux has-session -t $TMUX_NAME 2>/dev/null
@@ -62,4 +54,4 @@ fi
 
 # Join tmux
 echo "Attaching to tmux: ${TMUX_NAME}"
-xfce4-terminal --geometry 225x54+42+52 -e "tmux att -t ${TMUX_NAME} -c tmux select-window -t 1" & 
+xfce4-terminal --geometry 225x54+42+52 --command="tmux att -t ${TMUX_NAME}" #-c tmux select-window -t 1"
