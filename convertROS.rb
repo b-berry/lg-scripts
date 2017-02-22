@@ -31,6 +31,7 @@ class Optparse
         options = OpenStruct.new
         options.autoplay = false
         options.backup = BackupName
+        options.dir = './'
         options.encoding = "utf8"
 
         opts = OptionParser.new do |opts|
@@ -285,6 +286,30 @@ def processKmz(file)
 end
 
 
+def userConfirm(options)
+
+    # Issue warning
+    STDOUT.puts "### WARNING!! ###"
+    STDOUT.puts "# Running this script will modify asset_files in: #{options.dir}"
+    STDOUT.puts "###"
+
+    STDOUT.puts
+    STDOUT.printf "Please type 'YES' to continue: " 
+    prompt = STDIN.gets.chomp
+
+    exitRun unless prompt == 'YES'
+
+end
+
+
+def exitRun()
+
+    STDOUT.puts "User Aborted, exiting!"
+    exit 0
+
+end
+
+
 def unzipFile(file,options)
 
     puts "...Unpacking KMZ: #{file}..."
@@ -449,16 +474,10 @@ end
 options = Optparse.parse(ARGV)
 STDOUT.puts options
 
-# Issue warning
-puts "### WARNING!! ###"
-puts "# Running this script will modify asset_files in #{options.dir}"
-puts "# Ctrl + z now to cancel operations"
-puts
-
-    ## Give user quit option
-    sleep(2)
-
 files = collectFiles(options.dir)
+
+# Get user permision to run conversion
+userConfirm(options)
 
 # Process files
 parseFiles(files,options)
