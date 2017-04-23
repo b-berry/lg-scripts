@@ -33,6 +33,7 @@ class Optparse
         options.backup = BackupName
         options.dir = './'
         options.encoding = "utf8"
+        options.view = []
 
         opts = OptionParser.new do |opts|
             # Set Defaults here
@@ -63,14 +64,23 @@ class Optparse
                 options.backup = dir
             end
             
-            opts.on("-i N", Float, 
-                "Specify initial FOV INTEGER") do |n|
-                options.init = n
-            end
-
-            opts.on("-t N", Float, 
-                "Specify target FOV INTEGER") do |n|
-                options.target = n
+            opts.on("-v", "--view initialFOV,targetFOV", Array, 
+                "Specify initial,target FOV") do |v|
+                # Test input data type
+                if v.is_a?(Enumerable)
+                    v.each do |fov|
+                        unless fov.to_i > 0
+                            STDERR.puts "Specified view parameter: #{fov}"
+                            STDERR.puts "    not an integer.  Exiting!"
+                            exit 1
+                        end
+                        options.view << fov.to_i
+                    end
+                else
+                    STDERR.puts "Specified view: #{v}:"
+                    STDERR.puts "    not an array of inital,target FOV.  Exiting!"
+                    exit 1
+                end
             end
 
             opts.on_tail("-h", "--help", "Prints this help") do
@@ -207,19 +217,39 @@ def convertFile(doc,file,options)
     if networkLinkName.css("name").text  == "Autoplay" then 
         # Backup File to be modified
         backupFile(file,options)
-
         # Run autoplay convert
         if options.autoplay
+            # Build updated URI
             hrefRosReplace = convertAutoplay(networkLink)
             puts "...Modifying Url: #{hrefRosReplace}"
             networkLink.at_css("href").content = hrefRosReplace
         end
 
-        if options.initial and options.target
-
+        # Run abstractView convert
+        unless options.view.empty?
+            abstractViews = doc.css("LookAt") 
+            # Skip file if no LookAtpresent
+            return if abstractViews.empty?
+            # Run convertRange method
+            abstractViews.each{ |lookat|
+                convertRange(lookat,options.view)
+            }
         end
     end
     return doc
+
+end
+
+
+def convertRange(lookat,view)
+
+    # Extract Range
+    range = lookat.children.css("range").text.to_f
+    # Calculate multiplier
+    mod = view[0] / view[1]
+    range_i = range * mod
+    # Modify range
+    lookat.children.at_css("range").content = range_i
 
 end
 
@@ -473,7 +503,6 @@ end
 
 options = Optparse.parse(ARGV)
 STDOUT.puts options
-
 files = collectFiles(options.dir)
 
 # Get user permision to run conversion
