@@ -147,9 +147,10 @@ def parseFiles(files,options)
     
     files.keys.each do |type|
 
-        puts "Processing #{type}:"
+        STDOUT.puts "Processing #{type}:"
 
         files[type].each do |file|
+            STDOUT.puts " #{file.split('/').last}"
             # Test filetype 
             ftype = `file #{file}`
             case ftype
@@ -249,7 +250,9 @@ def convertRange(lookat,view)
     mod = view[0] / view[1]
     range_i = range * mod
     # Modify range
-    lookat.children.at_css("range").content = range_i
+    unless lookat.children.at_css("range").nil?
+        lookat.children.at_css("range").content = range_i
+    end
 
 end
 
@@ -276,7 +279,7 @@ def writeFile(doc,file)
 
     # Write modified changes
     #File.write(file, doc.to_xml)
-    puts "...Writing modifications..."
+    puts "...Writing modifications: #{file}"
     #File.open(file, 'w') { |f| f.print(doc.to_xml) }
     File.write("#{file}", doc.to_xml)
     puts "...done."
