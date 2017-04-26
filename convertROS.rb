@@ -164,6 +164,8 @@ def parseFiles(files,options)
                 FileUtils::mkdir_p "#{options.dir}/#{TempDir}"
                 #processKmz(file)
                 unzipFile(file,options)
+            else
+                next
             end
         end 
     end
@@ -178,6 +180,9 @@ def convertAutoplay(url)
         port = href.port
         path = href.path
         query = href.query
+	
+	# Skip if query missing
+	return if query.empty? or query.nil?
 
         # Extract #{tourname}
         # Set delimiter
