@@ -180,8 +180,14 @@ def convertAutoplay(url)
         query = href.query
 
         # Extract #{tourname}
-        if query.split('&').length > 1
-            query.split('&').each do |que|
+        # Set delimiter
+        if query.include?('&amp;')
+            del = '&amp;'
+        else
+            del = '&'
+        end
+        if query.split(del).length > 1
+            query.split(del).each do |que|
                 playtourTest = que.split('=').index('playtour')
                 next if playtourTest.nil?
                 @tourname = que.split('=')[playtourTest.to_f + 1]
