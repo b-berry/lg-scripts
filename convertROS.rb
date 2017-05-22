@@ -11,8 +11,7 @@ require 'securerandom'
 require 'zip'
 
 
-BackupName = ".backup"
-TempDir = ".tmp"
+BackupName = "tmp"
 FileType = ["kml","kmz"]
 HostROS ="http://localhost" 
 PortROS =":8765"
@@ -516,6 +515,10 @@ end
 ### Run Time Operations Start Here ###
 
 options = Optparse.parse(ARGV)
+
+# Set ZIP extraction dir
+TempDir = "#{options.backup}/.zip"
+
 STDOUT.puts options
 files = collectFiles(options.dir)
 
