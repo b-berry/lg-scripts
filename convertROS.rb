@@ -6,7 +6,6 @@ require 'nokogiri'
 require 'open-uri'
 require 'ostruct'
 require 'optparse'
-require 'pry'
 require 'securerandom'
 require 'zip'
 
@@ -269,9 +268,6 @@ end
 
 def imageResize(file,img,entry)
 
-    # input_image_filename, output_image_filename, max_width, max_height
-    #Image.resize(img, img_r, 1215, 2160) 
-
     img_r = "#{img.gsub('.png','')}-resize.png" 
     puts "...Resizing #{img} -> #{img_r}"
     `convert #{img} -resize x2160 #{img_r}`
@@ -287,8 +283,6 @@ end
 
 def writeFile(doc,file)
 
-    # Write modified changes
-    #File.write(file, doc.to_xml)
     puts "...Writing modifications: #{file}"
     #File.open(file, 'w') { |f| f.print(doc.to_xml) }
     File.write("#{file}", doc.to_xml)
@@ -310,14 +304,10 @@ def processKmz(file)
                     doc = Nokogiri::XML(d.read)
                     convertFile(doc)
                     # Replace w/ updated #{doc}
-                    #docUpdate = StringIO.open(string="#{doc.text}")
-                    #docUpdate = doc.write_to(fname, :encoding => 'UTF-8', :indent => 2)
                     doc_update = doc.serialize
                     doc_replace = StringIO.new
                     doc_replace.write doc_update
                     ar.replace_io(i,doc_replace)
-                    #ar.replace_file(fname,docUpdate)
-                    #ar.replace_io(fname,doc)
                     ar.commit
                 end
             end
@@ -364,7 +354,6 @@ def unzipFile(file,options)
     Zip::File.open(file).each do |entry|
         fullname = entry.to_s	
         filename = File.basename(fullname) 
-        #filename = "#{SecureRandom.urlsafe_base64}" 
         case fullname.split('.').last 
         when 'kml' 
 
@@ -387,81 +376,13 @@ def unzipFile(file,options)
             doc_update = "#{t_path}/#{filename}"
             File.write("#{doc_update}", doc.to_xml)
             zipFile(file, doc_update, fullname)
-            #else
 
-            # Read into memory
-            #zip_entries << { :name => entry, 
-            #                 :content => entry.get_input_stream.read }
-
-#        when 'png'
-#    
-#            # Extract Image
-#            img_string = entry.get_input_stream.read 
-#            img_name = "#{$path}/#{TempDir}/#{filename}" 
-#            puts "...Extracting from #{file}: #{img_name}"
-#            File.write("#{img_name}", img_string)             
-#            # Convert Image
-#            imageResize(file, img_name, fullname)
-
-	else 
+	    else 
+            # Skip file
             next
         end
 
-    
-        # Find KML entry(s) ** IF solution to `zip -u foo.kmz #{doc}` found
-        #entry = zip_file.glob('*.kml').each do |kml|
-        #    doc_string =  entry.get_input_stream.read
-        #    doc = Nokogiri::XML(doc_string)
-
-            # Process KML
-        #    convertFile(doc)
-            
-            # Update KML
-        #    doc_update = doc.serialize
-            
-        #end
-
     end 
-
-    #zipFile(file,zip_entries)
-
-    # RubyZip gem usage
-    #require 'zip'
-
-    #zip::File.open(file) do |kmz|
-    #    kmls = kmz.glob('*.kml')
-    #    kmls.each do |k|
-    #        doc = k.get_input_stream.read
-    #    end
-    #end
-    # or
-    # doc = XML::Document.string(Zip::File.open("GROTour.kmz").glob('doc.kml').first.get_input_stream.read)
-
-    # Unzip *.kml from file.kmz as File
-    #kmls = []
-
-
-    #puts "Unpacking KMZ: #{file}..."
-    #kmls = `unzip -p -j #{file} doc.kml`
-
-    # Test Unzip
-    #if kmls.empty? 
-    #     puts "...Unpack failed, no doc.kml found."
-    #end
- 
-    #kmls.each do |k|
-        # Open KML file
-        #doc = XML::Document.string(kmls) { |f| Nokogiri::XML(f) }
-    #    doc = Nokogiri::XML(kmls)
-
-    #    unless doc.nil?
-    #        puts "...OK."
-    #        convertFile(doc)
-        
-            # Update file in archive
-    #        zipFile(doc,file)
-    #    end
-    #end
 
 end
 
@@ -470,13 +391,6 @@ def zipFile(file, filename, entry)
 
 
     if File.exists?(filename) 
-
-	# Modifiy entry to match in-archive path
-	#entry = File.basename(entry)
-
-    #    puts "...Updating: #{file}"
-    #    puts "             #{filename} -> #{entry}"
-    #    `zip -f #{file} #{entry}`
 
 	Zip::File.open(file) do |zip_update|
 	    puts "...Updating: #{file}"
@@ -495,19 +409,6 @@ def zipFile(file, filename, entry)
         puts "   Failed to update: #{file}"
         puts "      Archived file: #{entry}"
     end
-
-    # Update doc.kml in zip archive
-    #`zip -u #{file} -j #{doc}`
-
-#    Zip::File.open(file, Zip::File::CREATE) do |zipfile|
-#        zip_entries.each do |zipper|
-            # Two arguments:
-            # - The name of the file as it will appear in the archive
-            # - The original file, including the path to find it
-#            zipfile.get_output_stream(zipper.fetch(:name)) { |os| os.write "#{zipper.fetch(:content).to_s}" }
-#            zipfile.add(file, zipper.fetch(:name) )
-#        end
-#    end
 
 end
 
