@@ -7,7 +7,6 @@ require 'json'
 require 'kamelopard'
 require 'kamelopard/spline'
 require 'logger'
-require 'nokogiri'
 require 'optparse'
 require 'securerandom'
 
@@ -138,10 +137,6 @@ def getOpts
             " Default: nil") do |icon|
             $options[:iconStyle] = icon
         end
-        opts.on("-m", "--migrate [to ROS] PATH") do |migrate|
-            $options[:migrate] = true
-            $options[:KMLfiles] = migrate
-        end
         opts.on("-o", "--override a,h,r,t", Array, 
             "Override abstract view: alt,heading,range,tilt") do |override|
             $options[:override] = override
@@ -194,6 +189,7 @@ def getOpts
 
 end
 
+
 def makeAutoplay
 
     # Set current attributes
@@ -218,86 +214,6 @@ def makeAutoplay
             STDERR.puts "... using default 'Director'"
             # Director Autoplay
             get_folder << Kamelopard::NetworkLink.new( URI::encode("http://localhost:81/change.php?query=playtour=#{tourname}\&amp;name=#{name_document}"), {:name => "Autoplay", :flyToView => 0, :refreshVisibility => 0} )
-    end
-
-end
-
-def makeROS 
-
-    pathSrc = $options.fetch[:KMLfiles]
-
-    # Collect files
-    STDOUT.puts "Searching #{pathSrc}/ for #{fileType.upcase} files..."
-    STDOUT.puts
-
-    filesKML=[]
-    filesKML=Dir.glob("#{pathSrc}/**/*.#{fileType}")
-
-    # Test results
-    if filesKML.empty? 
-        STDERR.puts "No files found!"
-        exit
-    end
-
-    # Report Findings.
-    STDOUT.puts filesKML
-    STDOUT.puts "Found #{filesKML.length} KML files." 
-
-    n = 0
-    # Operate over files
-    filesKML.each do |file|
-        # Testing
-        #if [ n > 0 ]
-        #    break
-        #end
-
-        STDOUT.puts "...editing #{file}:"
-        doc = File.open("#{file}") { |f| Nokogiri::XML(f) }
-        networkLink = doc.css("NetworkLink") 
-        # Skip file if no NetworkLink present
-        next if networkLink.empty?
-        # Get networkLink Name
-        networkLinkName = networkLink.css("name")
-        if networkLinkName.css("name").text  == "Autoplay" then 
-            # Extract Director Url
-            href = URI.parse(networkLink.css("href").text)
-            host = href.host
-            port = href.port
-            path = href.path
-            query = href.query
-            # Extract #{tourname}
-            if [ href.query.length > 1 ] then
-                href.query.split("&").each do |query|
-                    playtourTest = query.split("=").index("playtour")
-                    next if playtourTest.nil?
-                    @tourname = query.split("=")[playtourTest.to_f + 1]
-                end
-            else
-                playtourTest = query.split("=").index("playtour")
-                @tourname = query.split("=")[playtourTest.to_f + 1]
-            end
-            STDOUT.puts @tourname
-            # Confirm tourname
-            if @tourname.nil? then
-                STDERR.puts "No Tourname Found! Skipping NetworkLink"
-                next
-            end
-            #queryRosString = URI.encode_www_form(QueryROS => @tourname)  
-            queryRosString = "#{QueryROS}#{@tourname}"
-            # Modify Autoplay Url
-            hrefRosReplace = URI.parse("#{HostROS}#{PortROS}#{PathROS}#{queryRosString}")
-            STDOUT.puts "...modifying Url: #{hrefRosReplace}."
-            networkLink.at_css("href").content = hrefRosReplace         
-        end
-
-        # Write modified changes
-        #File.write(file, doc.to_xml)
-        STDOUT.puts "...Writing modifications..."
-        File.open(file, 'w') { |f| f.print(doc.to_xml) }
-        STDOUT.puts "...done."
-        
-        # Testing
-        #n = n + 1
     end
 
 end
@@ -329,6 +245,7 @@ def makeOverlayKML
  
     end
 end
+
 
 def makeOverlayHTML(p)
 
@@ -1003,13 +920,6 @@ if $options[:screenOverlay]
     STDOUT.puts "Generating Overlays..."
     makeOverlayKML
     STDOUT.puts "...done!"
-else if $options[:migrate]
-        STDOUT.puts "Initiating ROS migration..."
-        makeROS
-        STDOUT.puts "...done!"
-    else
-        STDERR.puts "No infile specified OR No secondary constructions specified!"
-    end
 end
 
 STDOUT.puts "Finished!"
