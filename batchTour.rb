@@ -14,7 +14,7 @@ include Kamelopard
 include Kamelopard::Functions
 
 
-$log = Logger.new('./batchTour.log')
+$log = Logger.new('./.batchTour.log')
 $log.level = Logger::WARN
 
 #require_relative("foo.rb")
@@ -893,14 +893,14 @@ unless infile.nil?
     end
 
     # Build gx:Tour if flight type specified
-    #if FlightTypes.include? $options[:flight] 
-    #    makeTour
-    #else
+    if FlightTypes.include? $options[:flight]
+        makeTour
+    end
+
+    # Build placemarks KML if specified
     if $options[:placemarks]
         makePlacemarks
         writeTour
-    else
-        makeTour
     end
 
     sleep(1)
