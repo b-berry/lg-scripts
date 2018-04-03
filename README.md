@@ -58,3 +58,20 @@ EXAMPLES:
 ## Build orbit tours w/ abstractView override from placemarks.kml
 ./batchTour.rb -a roscoe -f orbit -o 0,1000,57 -w placemarks.kml
 
+## RBenv Config
+
+```bash
+# Install rbenv
+$ git clone https://github.com/rbenv/rbenv.git ~/.rbenv
+$ cd ~/.rbenv && src/configure && make -C src
+# Ubuntu Env:
+$ echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bashrc
+$ ~/.rbenv/bin/rbenv init
+# Ruby Build
+$ mkdir -p "$(rbenv root)"/plugins
+$ git clone https://github.com/rbenv/ruby-build.git "$(rbenv root)"/plugins/ruby-build
+# Source .bashrc
+$ source ~/.bashrc
+# Install ruby -v 2.2.2
+rbenv install -v 2.2.2
+```
