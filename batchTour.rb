@@ -10,6 +10,8 @@ require 'logger'
 require 'optparse'
 require 'securerandom'
 
+#require 'pry'
+
 include Kamelopard
 include Kamelopard::Functions
 
@@ -101,7 +103,7 @@ def getOpts
     OptionParser.new do |opts|
         # Set Defaults here
         $options[:assetdir] = './'
-        $options[:autpolay] = 'director'
+        $options[:autoplay] = 'roscoe'
         $options[:infile] = 'doc.kml'
         $options[:inline] = 'true'
         $options[:orbit] = %w(90 30 7)
